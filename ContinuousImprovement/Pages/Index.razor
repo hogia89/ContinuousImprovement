@@ -1,0 +1,818 @@
+﻿@page "/"
+@using ContinuousImprovement.Data
+@using ChartJs.Blazor.Charts
+@using ChartJs.Blazor.ChartJS.PieChart
+@using ChartJs.Blazor.ChartJS.Common.Properties
+@using ChartJs.Blazor.ChartJS.Common.Handlers
+@using ChartJs.Blazor.ChartJS.Common.Enums
+@using ChartJs.Blazor.Util
+@using ChartJs.Blazor.ChartJS.BarChart
+@using ChartJs.Blazor.ChartJS.BarChart.Axes
+@using ChartJs.Blazor.ChartJS.Common.Axes
+@using ChartJs.Blazor.ChartJS.Common.Axes.Ticks
+@using ChartJs.Blazor.ChartJS.Common.Wrappers
+@inherits OwningComponentBase<SuggestionService>
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager nav
+
+<div class="row">
+
+    <div class="col-lg-6 col-xm-6 col-xl-6 col-sm-12">
+        @if (suggestion.Any())
+        {
+            @foreach (var item in suggestionFilter.OrderByDescending(x => x.submitDate.ToDateTime()))
+            {
+                <div class="card p-0 m-3">
+                    <div class="card-header p-0 pl-3">
+                        <div class="row">
+                            <div class="col-1 pl-2" style="font-size:30px">
+                                <i class="fas fa-user-astronaut"></i>
+                            </div>
+                            <div class="col-10 pt-1">
+                                <div class="row">
+                                    <span style="font-weight:200">@item.ownerSuggestion <span style="color:lightgray;font-size:10px">suggest for @item.deptRecSug</span></span>
+                                </div>
+                                <div class="row">
+                                    @if (item.status == "Đăng ký mới")
+                                    {
+                                        <span class="pl-2" style="font-size:8px;color:lightgray"> @item.status at @item.submitDate.ToDateTime().AddHours(7)</span>
+                                    }
+                                    else if (item.status == "Đã duyệt")
+                                    {
+                                        <span class="pl-2 text-success" style="font-size:8px"> @item.status<span style="font-size:8px;color:lightgray"> by @item.approveSuggBy at @item.submitDate.ToDateTime().AddHours(7)</span></span>
+                                    }
+                                    else if (item.status == "Không thực hiện")
+                                    {
+                                        <span class="pl-2 text-danger" style="font-size:8px">Rejected<span style="font-size:8px;color:lightgray"> by @item.approveSuggBy at @item.submitDate.ToDateTime().AddHours(7)</span></span>
+                                    }
+                                    else if (item.status == "Đang chờ giải quyết")
+                                    {
+                                        <span class="pl-2" style="font-size:8px;color:lightsalmon"> @item.status<span style="font-size:8px;color:lightgray"> by @item.ownerAction from @item.assignDt.ToDateTime().AddHours(7)</span></span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pl-2" style="font-size:8px;color:lightgray"> @item.status at @item.submitDate.ToDateTime().AddHours(7)</span>
+                                    }
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0 m-0 row">
+                        <div class="col-4 p-1">
+                            @if (item.imageUri != null)
+                            {
+                                <img src="@item.imageUri" width="150" height="150" object-fit="contain" />
+                            }
+                            else
+                            {
+                                <img src="https://pngimage.net/wp-content/uploads/2018/06/img-icon-png-3.png" width="120" height="100" object-fit="contain" style="opacity:0.1" />
+                            }
+                        </div>
+                        <div class="col-8 p-1">
+                            <div class="row p-0 m-0">
+                                <span class="small" style="font-weight:bold">@item.currentStatus</span>
+                            </div>
+                            <div class="row p-0 m-0">
+                                <span class="small" style="font-style:oblique"> @item.suggestionAction</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer p-1 row ml-2 mr-2 mb-0 mt-0" style="background-color:transparent;text-align:center;opacity:0.6">
+
+                        @if (item.like)
+                        {
+                            <button class="btn col-2" style="font-size:9px" @onclick="() => UnlikeSuggestion(item.id)">
+                                <span style="color:#f53845">
+                                    <i class="fas fa-heart"></i>
+                                </span>
+                                <span style="color:dimgray">@item.CountLike</span>
+                                @*<span style="color:dimgray">@listOfLikes.Where(x => x.Id == item.id).Count()</span>*@
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn col-2" style="font-size:9px" @onclick="() => LikeSuggestion(item.id)">
+                                <span style="color:#dbdbd9">
+                                    <i class="fas fa-heart"></i>
+                                </span>
+                                <span style="color:dimgray">@item.CountLike</span>
+                                @*<span style="color:dimgray">@listOfLikes.Where(x => x.Id == item.id).Count()</span>*@
+                            </button>
+                        }
+                        @if (item.status == "Đăng ký mới")
+                        {
+                            @*<div class="col-5"><span>Approve new suggestion?</span></div>*@
+                            <button class="btn col-6 btn-outline-success pl-2 m-0 ml-1 mr-2" style="font-size:9px" @onclick="() => ApproveSuggestion(item.id)"><i class="fas fa-check-square"></i> Approve</button>
+
+                            <button class="btn col-3 btn-outline-danger pl-2 m-0" style="font-size:9px" @onclick="() => RejectSuggestion(item.id)"><i class="far fa-window-close"></i> Reject</button>
+                        }
+                        else if (item.status == "Đã duyệt")
+                        {
+                            if (isLoadAssignTask != item.id)
+                            {
+                                <button class="btn col-10" @onclick="() => AssignTask(item.id)" style="color:dimgray;font-size:9px"><i class="fas fa-hands-helping"></i> Assign Task</button>
+                            }
+                            else
+                            {
+                                <input class="form-control col-6 pl-2 m-0" style="font-size:9px" placeholder="Input company email of receiver" @bind-value="@emailAssign" @bind-value:event="oninput" @onkeyup="assignToEmail" autofocus />
+                                <button class="btn col-4 text-success p-0" @onclick="saveAssign" style="color:dimgray;font-size:9px" @attributes="InputAttribute"><i class="fas fa-hands-helping"></i>Assign</button>
+                            }
+                        }
+                        else if (item.status == "Đang chờ giải quyết")
+                        {
+                            <button class="btn col-10 pl-2 m-0" style="font-size:9px" @onclick="() => ApproveSuggestion(item.id)"><i class="fas fa-info"></i> Details</button>
+                        }
+                        else
+                        {
+                            <button class="btn col-10 pl-2 m-0" style="font-size:9px" @onclick="() => ApproveSuggestion(item.id)"><i class="fas fa-redo"></i> Approve Again</button>
+                        }
+                    </div>
+                </div>
+            }
+
+        }
+        else
+        {
+            if (checkLoadingData)
+            {
+                <p>No data </p>
+            }
+            else
+            {
+                <p>Loading ... </p>
+            }
+
+        }
+    </div>
+    <div class="col-lg-6 col-xl-6 col-xm-6 col-sm-12 sidebarleft" style="opacity:0.6">
+        <div class="row form-row p-1">
+            <div class="col-7">
+                <h2>Dashboard <a class="btn text-success" href="#" @onclick="@Refresh" style="background-color:transparent"><i class="fas fa-sync-alt"></i></a></h2>
+            </div>
+            <div class="col-5">
+                <div class="row">
+                    <div class="col-6 p-1" style="text-align:right">
+                        <span style="font-size:10px">Select Year</span>
+                    </div>
+                    <div class="col-6 p-1">
+                        <select class="form-control" @onchange="FilterYear" style="font-size:10px">
+                            @for (int i = 0; i < 10; i++)
+                            {
+                                <option value="@(currentYear - i)">@(currentYear - i)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @if (suggestion.Any())
+        {
+            int i = 1;
+            var wdProgress = 100;
+            <div class="row">
+                <div class="col-6">
+                    <div class="row">
+                        <div class="card col-12 m-1 ml-2 p-0" style="height:40vh;min-height:300px">
+                            <div class="card-header">
+                                <span class="card-title">Overall</span>
+                            </div>
+                            <div class="card-body p-3">
+                                <ChartJsBarChart @ref="_barChart"
+                                                 Config="@_barChartConfig"
+                                                 Width="150"
+                                                 Height="100" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="card col-12 m-1 ml-2 p-0 text-center" style="height:40vh;min-height:300px">
+                            <div class="card-header p-0">
+                                <ul class="nav nav-pills card-header-pills m-1 row">
+                                    <li class="nav-item p-0 ml-1">
+                                        <a class="nav-link btn btn-outline-success @(filterQuater==0?"active":"")" href="#" @onclick="() => FilterQuarter(0)">All</a>
+                                    </li>
+                                    <li class="nav-item p-0 ml-1">
+                                        <a class="nav-link btn btn-outline-warning @(filterQuater==1?"active":"")" href="#" @onclick="() => FilterQuarter(1)">Q1</a>
+                                    </li>
+                                    <li class="nav-item p-0 ml-1">
+                                        <a class="nav-link btn btn-outline-primary @(currentQuater<2?"disabled":"") @(filterQuater==2?"active":"")" href="#" @onclick="() => FilterQuarter(2)">Q2</a>
+                                    </li>
+                                    <li class="nav-item p-0 ml-1">
+                                        <a class="nav-link btn btn-outline-danger @(currentQuater<3?"disabled":"") @(filterQuater==3?"active":"")" href="#" @onclick="() => FilterQuarter(3)">Q3</a>
+                                    </li>
+                                    <li class="nav-item p-0 ml-1">
+                                        <a class="nav-link btn btn-outline-dark @(currentQuater<4?"disabled":"") @(filterQuater==4?"active":"")" href="#" @onclick="() => FilterQuarter(4)">Q4</a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="card-body p-3">
+                                <ChartJsPieChart @ref="_doughnutChartJs" Config="@_config" Height="100" Width="150" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 pr-0">
+                    <div class="row m-1">
+                        <div class="card col-12 p-0" style="height:50vh;min-height:375px">
+                            <div class="card-header">
+                                <span class="card-title">Department Ranking</span>
+                            </div>
+                            <div class="card-body m-1 p-1 row" style="overflow-y:auto">
+                                @if (suggestionFilterQuater.Any())
+                                {
+                                    @foreach (var item in suggestionFilterQuater
+                                 .GroupBy(x => x.deptRecSug).Select(x => new { Dept = x.Key, Sugg = x.Count() })
+                                 .OrderByDescending(x => x.Sugg *100 / (listOfEmployee_CRS530s.Where(g => g.Department == x.Dept || g.TPU == x.Dept).Count() > 0 ? listOfEmployee_CRS530s.Where(g => g.Department == x.Dept || g.TPU == x.Dept).Count() : 1)))
+                                    {
+                                        //<div class="row">
+                                        var nbOper = (listOfEmployee_CRS530s.Where(g => g.Department == item.Dept).Count() > 0 ? listOfEmployee_CRS530s.Where(g => g.Department == item.Dept).Count() : 1);
+                                        var ratio = item.Sugg * 100 / nbOper ;
+                                            <a class="col-3 p-0" style="font-size:7px" href="#" 
+                                               @onclick="() => Filter(item.Dept, null)"
+                                               title="@item.Dept: @item.Sugg Sugg / @nbOper Ops (Ratio: @ratio%)">
+                                                <span class="row ml-1">
+                                                    @item.Dept.Replace("TPU-", "")
+                                                </span>
+                                            </a>
+                                            <div class="col-9 p-0">
+                                                <div class="progress mb-1" style="width:@wdProgress%;height:50%">
+                                                    @foreach (var item1 in suggestionFilterQuater.Where(x => x.deptRecSug == item.Dept)
+                                                .GroupBy(x => x.status).Select(x => new { status = x.Key, count = x.Count() }))
+                                                    {
+                                                        <div class="progress-bar @DisplayColorOfStatus(item1.status)[0]" role="progressbar"
+                                                             style="cursor:pointer;width:@(item1.count * 100 / suggestionFilterQuater.Where(x => x.deptRecSug == item.Dept).Count())%"
+                                                             @onclick="() => Filter(item.Dept, item1.status)"
+                                                             title="@item1.status: @item1.count">
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        //</div>
+                                        wdProgress = wdProgress - 5;
+                                    }
+                                    wdProgress = 100;
+                                }
+                                else
+                                {
+                                    <p>No data</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row m-1 pt-1">
+                        <div class="card col-12 p-0 text-center" style="height:30vh;min-height:225px">
+                            <div class="card-header">
+                                <span class="card-title">Top Employee</span>
+                            </div>
+                            <div class="card-body p-1">
+                                <table class="col-12 p-1">
+                                    <tr style="font-size:8px">
+                                        <th style="text-align:left">
+                                            Rank
+                                        </th>
+                                        <th style="text-align:left">
+                                            Employee Info.
+                                        </th>
+                                        <th>
+                                            Like
+                                        </th>
+                                        <th>
+                                            Total Suggestion
+                                        </th>
+                                    </tr>
+                                    @foreach (var item in suggestion.Where(x => x.status != "Không thực hiện").GroupBy(x => new { x.ownerCode })
+                                       .Select(y => new { ID = y.Key.ownerCode, Count = y.Count(), CountLike = y.Sum(z => z.CountLike) })
+                                       .OrderByDescending(x => x.Count)
+                                       .ThenByDescending(x => x.CountLike)
+                                       .Take(5))
+                                    {
+                                        <tr>
+                                            <td width="2" style="text-align:left"><span class="text-center" style="font-size:11px"><b>@DisplayWithSuffix(i)</b></span></td>
+                                            <td width="78">
+                                                <div class="row col-12 m-0 p-0">
+                                                    <span class="text-center" style="font-size:9px;font-style:initial">@suggestion.Where(x => x.ownerCode == item.ID).OrderByDescending(x => x.submitDate).Select(x => x.ownerSuggestion).FirstOrDefault()</span>
+                                                </div>
+                                                <div class="row col-12 m-0 p-0">
+                                                    <span class="text-center" style="font-size:6px">@item.ID _ @suggestion.Where(x => x.ownerCode == item.ID).OrderByDescending(x => x.submitDate).Select(x => x.ownerDept).FirstOrDefault()</span>
+                                                </div>
+                                            </td>
+                                            <td width="5">
+                                                <span style="color:#f53845;font-size:6px">
+                                                    @item.CountLike<i class="fas fa-heart"></i>
+                                                </span>
+                                            </td>
+                                            <td width="15">
+                                                <div class="progress" style="width: @wdProgress%">
+                                                    <div class="progress-bar bg-success" role="progressbar" style="cursor:pointer;width:100%;text-align:left" @onclick="()=>FilterEmployee(item.ID)">
+                                                        <span class="m-2">@item.Count</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        i++;
+                                        wdProgress = wdProgress - 15;
+                                    }
+                                </table>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p></p>
+        }
+        <div class="row form-row p-1" >
+            <span class="col-12 m-2" style="text-align:right; font-size:10px">Copyright © King Rain @DateTime.Now.Year</span>
+        </div>
+    </div>
+</div>
+
+
+@code{
+    #region Common variance
+    List<Suggestion> suggestion = new List<Suggestion>();
+    List<Suggestion> suggestionFilter = new List<Suggestion>();
+    List<Suggestion> suggestionFilterQuater = new List<Suggestion>();
+    List<ListOfEmployee_CRS530> listOfEmployee_CRS530s = new List<ListOfEmployee_CRS530>();
+    bool checkLoadingData = false;
+    string isLoadAssignTask;
+    string emailAssign;
+    int currentYear;
+    int currentQuater;
+    int filterYear;
+    string filterDept;
+    string filterStatus;
+    int filterQuater;
+    string filterEmployee;
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>
+        InputAttribute
+    { get; set; } =
+        new Dictionary<string, object>()
+            {{ "Disabled", "" },};
+    string currentUser;
+    #endregion
+    protected override async Task OnInitializedAsync()
+
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            currentUser = user.Identity.Name;
+        }
+        currentYear = DateTime.Today.Year;
+        currentQuater = (DateTime.Today.Month + 2) / 3;
+        filterYear = currentYear;
+        filterQuater = 0;
+        filterStatus = null;
+        filterDept = null;
+        filterEmployee = null;
+        try
+        {
+            await GetSuggestion();
+            listOfEmployee_CRS530s = Service.GetAllEmployeeInfo_Crs530();
+        }
+        catch (ObjectDisposedException)
+        {
+
+        }
+        suggestionFilter = suggestion;
+        suggestionFilterQuater = suggestion;
+        LoadChart();
+        if (!suggestion.Any())
+        {
+            checkLoadingData = false;
+        }
+        else
+        {
+            checkLoadingData = true;
+        }
+    }
+    #region Button fuction
+    public async Task LikeSuggestion(string Id)
+    {
+        await Service.LikeSuggestion(Id, currentUser);
+        await Refresh();
+    }
+    public async Task UnlikeSuggestion(string Id)
+    {
+        await Service.UnlikeSuggestion(Id, currentUser);
+        await Refresh();
+    }
+    public async Task ApproveSuggestion(string Id)
+    {
+        await Service.UpdateData(Id, currentUser.ToString(), "Đã duyệt");
+        await Refresh();
+    }
+    public async Task RejectSuggestion(string Id)
+    {
+        await Service.UpdateData(Id, currentUser.ToString(), "Không thực hiện");
+        await Refresh();
+    }
+    public void AssignTask(string Id)
+    {
+        isLoadAssignTask = Id;
+    }
+    public void assignToEmail()
+    {
+        emailAssign = emailAssign.Trim().ToLower();
+        if (emailAssign.Contains("@vn.pepperl-fuchs.com"))
+        {
+            InputAttribute = new Dictionary<string, object>
+{ { "Style", "opacity:1" } };
+        }
+        else
+        {
+            InputAttribute = new Dictionary<string, object>
+{ { "Disabled", "" } };
+        }
+    }
+    public async Task saveAssign()
+    {
+        await Service.UpdateAssignTask(isLoadAssignTask, emailAssign, "Đang chờ giải quyết");
+        // await GetSuggestion();
+        //suggestionFilter = suggestion;
+        isLoadAssignTask = null;
+        emailAssign = null;
+        //StateHasChanged();
+        await Refresh();
+        //LoadChart();
+
+        //StateHasChanged();
+    }
+    #endregion
+    #region Get Data and Refresh Data
+    public async Task GetSuggestion()
+    {
+        suggestion = await Service.GetSuggestions(currentUser.ToString(), filterYear, 0);
+    }
+    public async Task GetSuggestionQuater()
+    {
+        suggestionFilterQuater = await Service.GetSuggestions(currentUser.ToString(), filterYear, filterQuater);
+    }
+
+    public async Task Refresh()
+    {
+        suggestion = await Service.GetSuggestions(currentUser.ToString(), filterYear, filterQuater);
+        suggestionFilter = suggestionFilterQuater = suggestion;
+        if (filterDept != null)
+        {
+            suggestionFilter = suggestion.Where(x => x.deptRecSug == filterDept).ToList();
+        }
+        //sorting status
+        if (filterStatus != null)
+        {
+            suggestionFilter = suggestion.Where(x => x.status == filterStatus).ToList();
+        }
+        if (filterEmployee != null)
+        {
+            suggestionFilter = suggestion.Where(x => x.ownerCode == filterEmployee).ToList();
+        }
+        isLoadAssignTask = null;
+        emailAssign = null;
+        await UpdatePieChart();
+        StateHasChanged();
+    }
+    #endregion
+    #region Filter
+    public void FilterYear(ChangeEventArgs e)
+    {
+        filterYear = int.Parse(e.Value.ToString());
+        filterQuater = 0;
+        filterStatus = null;
+        filterDept = null;
+        filterEmployee = null;
+        try
+        {
+            var task = Task.Run(async () => { await GetSuggestion(); });
+            task.Wait();
+        }
+        catch (ObjectDisposedException)
+        {
+
+        }
+        suggestionFilter = suggestion;
+        suggestionFilterQuater = suggestionFilter;
+        LoadChart();
+        if (!suggestion.Any())
+        {
+            checkLoadingData = true;
+        }
+        else
+        {
+            checkLoadingData = false;
+        }
+        //await _barChart.Update();
+    }
+    public void Filter(string department, string status) //int i)
+    {
+        filterStatus = status;
+        filterDept = department;
+        filterEmployee = null;
+        suggestionFilter = suggestion;
+        // sorting department
+        if (filterDept != null)
+        {
+            suggestionFilter = suggestion.Where(x => x.deptRecSug == filterDept).ToList();
+        }
+        //sorting status
+        if (filterStatus != null)
+        {
+            suggestionFilter = suggestionFilter.Where(x => x.status == filterStatus).ToList();
+        }
+        //LoadChart();
+    }
+    public void FilterEmployee(string employeeId) //int i)
+    {
+        //suggestionFilter = suggestion;
+        filterEmployee = employeeId;
+        suggestionFilter = suggestionFilterQuater.Where(x => x.ownerCode == employeeId).ToList();
+        //LoadChart();
+    }
+    public async Task FilterQuarter(int q)
+    {
+        filterQuater = q;
+        filterStatus = null;
+        filterDept = null;
+        try
+        {
+            var task = Task.Run(async () => { await GetSuggestionQuater(); });
+            task.Wait();
+        }
+        catch (ObjectDisposedException)
+        {
+
+        }
+
+        await UpdatePieChart();
+        suggestionFilter = suggestionFilterQuater;
+        //LoadChart();
+
+    }
+    #endregion
+    #region Chart
+    private PieConfig _config;
+    private ChartJsPieChart _doughnutChartJs;
+    private BarConfig _barChartConfig;
+    private ChartJsBarChart _barChart;
+    private BarDataset<DoubleWrapper> _barDataSet;
+    private PieDataset doughnutSet;
+    //private int year;
+    public void LoadChart()
+    {
+        int i = 0;
+        int nbStatus = suggestionFilterQuater.Select(x => x.status).Distinct().Count();
+        string[] label = new string[nbStatus];
+        double[] dataPieChart = new double[nbStatus];
+        double[] dataBarChart = new double[4];
+        string[] color = new string[nbStatus];
+        string tittle = "All";
+        switch (filterQuater)
+        {
+            case 0:
+                tittle = "All";
+                break;
+            case 1:
+                tittle = "Quater 1";
+                break;
+            case 2:
+                tittle = "Quater 2";
+                break;
+            case 3:
+                tittle = "Quater 3";
+                break;
+            case 4:
+                tittle = "Quater 4";
+                break;
+        }
+        //year = DateTime.Now.Year;
+
+        for (int a = 0; a < 4; a++)
+        {
+            switch (a)
+            {
+                case 0:
+                    dataBarChart[a] = suggestion.Where(x => x.submitDate.ToDateTime() >= new DateTime(filterYear, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                        && x.submitDate.ToDateTime() < new DateTime(filterYear, 4, 1, 0, 0, 0, DateTimeKind.Utc)).Count();
+                    break;
+                case 1:
+                    dataBarChart[a] = suggestion.Where(x => x.submitDate.ToDateTime() >= new DateTime(filterYear, 4, 1, 0, 0, 0, DateTimeKind.Utc)
+                       && x.submitDate.ToDateTime() < new DateTime(filterYear, 7, 1, 0, 0, 0, DateTimeKind.Utc)).Count();
+                    break;
+                case 2:
+                    dataBarChart[a] = suggestion.Where(x => x.submitDate.ToDateTime() >= new DateTime(filterYear, 7, 1, 0, 0, 0, DateTimeKind.Utc)
+                       && x.submitDate.ToDateTime() < new DateTime(filterYear, 10, 1, 0, 0, 0, DateTimeKind.Utc)).Count();
+                    break;
+                case 3:
+                    dataBarChart[a] = suggestion.Where(x => x.submitDate.ToDateTime() >= new DateTime(filterYear, 10, 1, 0, 0, 0, DateTimeKind.Utc)
+                        && x.submitDate.ToDateTime() < new DateTime(filterYear + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc)).Count();
+                    break;
+                default:
+                    break;
+            }
+        }
+        foreach (var item in suggestionFilterQuater.GroupBy(x => x.status).Select(x => new { status = x.Key, count = x.Count() }))
+        {
+            label[i] = item.status;
+            dataPieChart[i] = item.count;
+            color[i] = DisplayColorOfStatus(item.status)[1];
+            i++;
+        }
+        #region Donut chart
+        _config = new PieConfig
+        {
+            Options = new PieOptions(true)
+            {
+                Title = new OptionsTitle
+                {
+                    Display = false,
+                    Text = tittle,
+                },
+                Responsive = true,
+                Animation = new ArcAnimation
+                {
+                    AnimateRotate = true,
+                    AnimateScale = true
+                },
+                Legend = new Legend
+                {
+                    Display = true,
+                    Position = Position.Bottom,
+                    FullWidth = false,
+                    Labels = new LegendLabelConfiguration
+                    {
+                        FontSize = 8,
+                        BoxWidth = 3,
+                    },
+                }
+            }
+        };
+        //Lable of chart
+        _config.Data.Labels.AddRange(label);
+
+        doughnutSet = new PieDataset
+        {
+            BackgroundColor = color,
+            BorderWidth = 0,
+            HoverBackgroundColor = ColorUtil.RandomColorString(),
+            HoverBorderColor = ColorUtil.RandomColorString(),
+            HoverBorderWidth = 1,
+            BorderColor = "#ffffff"
+        };
+        //data of chart
+        doughnutSet.Data.AddRange(dataPieChart);
+        _config.Data.Datasets.Add(doughnutSet);
+        #endregion
+        #region  Bar Chart
+        _barChartConfig = new BarConfig
+        {
+            Options = new BarOptions
+            {
+                Title = new OptionsTitle
+                {
+                    Display = false,
+                    Text = "Overall"
+                },
+                Legend = new Legend
+                {
+                    Display = false,
+                },
+                Scales = new BarScales
+                {
+                    XAxes = new List<CartesianAxis>
+{
+                            new BarCategoryAxis
+                            {
+                                BarPercentage = 0.5,
+                                BarThickness = BarThickness.Flex,
+                                GridLines=new ChartJs.Blazor.ChartJS.Common.GridLines{
+                                Display=false,
+                                },
+                            },
+                        },
+                    YAxes = new List<CartesianAxis>
+{
+                            new BarLinearCartesianAxis
+                            {
+                            Ticks = new LinearCartesianTicks
+                                {
+                                    BeginAtZero = true
+                                },
+                            Display = AxisDisplay.False,
+                            }
+                        }
+                }
+            }
+        };
+
+        _barChartConfig.Data.Labels.AddRange(new[] { "Q1", "Q2", "Q3", "Q4" });
+
+        _barDataSet = new BarDataset<DoubleWrapper>
+        {
+            Label = "Total Suggestion",
+            BackgroundColor = new[] { ColorUtil.RandomColorString(), ColorUtil.RandomColorString(), ColorUtil.RandomColorString(), ColorUtil.RandomColorString() },
+            BorderWidth = 0,
+            HoverBackgroundColor = ColorUtil.RandomColorString(),
+            HoverBorderColor = ColorUtil.RandomColorString(),
+            HoverBorderWidth = 1,
+            BorderColor = "#ffffff"
+        };
+
+        _barDataSet.AddRange(dataBarChart.Wrap());
+        _barChartConfig.Data.Datasets.Add(_barDataSet);
+        #endregion
+    }
+
+    public async Task UpdatePieChart()
+    {
+        int i = 0;
+        int nbStatus = suggestionFilterQuater.Select(x => x.status).Distinct().Count();
+        string[] label = new string[nbStatus];
+        double[] dataPieChart = new double[nbStatus];
+        string[] color = new string[nbStatus];
+        string tittle = "All";
+        switch (filterQuater)
+        {
+            case 0:
+                tittle = "All";
+                break;
+            case 1:
+                tittle = "Quater 1";
+                break;
+            case 2:
+                tittle = "Quater 2";
+                break;
+            case 3:
+                tittle = "Quater 3";
+                break;
+            case 4:
+                tittle = "Quater 4";
+                break;
+        }
+        foreach (var item in suggestionFilterQuater.GroupBy(x => x.status).Select(x => new { status = x.Key, count = x.Count() }))
+        {
+            label[i] = item.status;
+            dataPieChart[i] = item.count;
+            color[i] = DisplayColorOfStatus(item.status)[1];
+            i++;
+        }
+        //Update tittle
+        _config.Options.Title.Text = tittle;
+        //Update Lable Chart
+        _config.Data.Labels.Clear();
+        _config.Data.Labels.AddRange(label);
+        //Update color
+        doughnutSet.BackgroundColor = color;
+        //Update Data of Chart
+        doughnutSet.Data.Clear();
+        doughnutSet.Data.AddRange(dataPieChart);
+        _config.Data.Datasets.Add(doughnutSet);
+        //Update chart
+        await _doughnutChartJs.Update();
+    }
+    #endregion
+    #region Get the ordinal value of positive integers
+    public string DisplayWithSuffix(int num)
+    {
+        if (num.ToString().EndsWith("11")) return num.ToString() + "th";
+        if (num.ToString().EndsWith("12")) return num.ToString() + "th";
+        if (num.ToString().EndsWith("13")) return num.ToString() + "th";
+        if (num.ToString().EndsWith("1")) return num.ToString() + "st";
+        if (num.ToString().EndsWith("2")) return num.ToString() + "nd";
+        if (num.ToString().EndsWith("3")) return num.ToString() + "rd";
+        return num.ToString() + "th";
+
+    }
+    #endregion
+    #region Get color of status
+
+    public string[] DisplayColorOfStatus(string status)
+    {
+        switch (status)
+        {
+            case "Đăng ký mới":
+                return new string[] { "bg-success", "#5cb85c" };
+            case "Đã duyệt":
+                return new string[] { "bg-warning", "#f0ad4e" };
+            case "Không thực hiện":
+                return new string[] { "bg-danger", "#d9534f" };
+            case "Đang chờ giải quyết":
+                return new string[] { "bg-dark", "#292b2c" };
+            case "Đang thực hiện":
+                return new string[] { "bg-primary", "#0275d8" };
+            case "Hoàn thành":
+                return new string[] { "bg-light", "#f7f7f7" };
+            case "Quá hạn":
+                return new string[] { "bg-info", "#5bc0de" };
+            default:
+                return null;
+        }
+    }
+    #endregion
+}

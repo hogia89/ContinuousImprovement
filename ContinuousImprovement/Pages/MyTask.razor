@@ -1,0 +1,254 @@
+﻿@page "/mytask"
+@using ContinuousImprovement.Data
+@inherits OwningComponentBase<ActionService>
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager nav
+
+<select class="col-2" title="Select Department" @onchange="FilterDepartment">
+    @if (department != null)
+    {
+        <option>
+            @department
+        </option>
+        <option>
+            All
+        </option>
+    }
+    else if (department == "All")
+    {
+        <option>
+            All
+        </option>
+    }
+    else
+    {
+        <option>All</option>
+    }
+    @foreach (var item in suggestion.OrderBy(x => x.deptRecSug).Select(x => x.deptRecSug).Distinct())
+    {
+
+        <option value="@item">
+            @item
+        </option>
+    }
+
+</select>
+<div class="col-lg-6 col-xm-6 col-sm-12">
+    @foreach (var item in suggestion.OrderByDescending(x => x.approveDt))
+    {
+        <div class="card p-0 m-3">
+            <div class="card-header p-0 pl-3">
+                <div class="row">
+                    <div class="col-1" style="font-size:30px">
+                        <i class="fas fa-user-astronaut"></i>
+                    </div>
+                    <div class="col-11 pt-1">
+                        <div class="row">
+                            <span style="font-weight:200">@item.ownerSuggestion <span style="color:lightgray;font-size:10px">suggest for @item.deptRecSug</span></span>
+                        </div>
+                        <div class="row">
+                            @if (item.status == "Đang chờ giải quyết")
+                            {
+                                <span class="pl-2" style="font-size:8px;color:lightsalmon"> @item.status<span style="font-size:8px;color:lightgray"> by @item.ownerAction from @item.assignDt.ToDateTime().AddHours(7)</span></span>
+                            }
+                            else
+                            {
+                                <span class="pl-2" style="font-size:8px;color:lightgray"> @item.status at @item.submitDate.ToDateTime().AddHours(7)</span>
+                            }
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0 m-0 row">
+                <div class="col-3 p-1">
+                    @if (item.imageUri != null)
+                    {
+                        <img src="@item.imageUri" width="120" height="100" object-fit="contain" />
+                    }
+                    else
+                    {
+                        <img src="https://pngimage.net/wp-content/uploads/2018/06/img-icon-png-3.png" width="120" height="100" object-fit="contain" style="opacity:0.1" />
+                    }
+                </div>
+                <div class="col-9 p-1">
+                    <div class="row p-0 m-0">
+                        <span class="small" style="font-weight:bold">@item.currentStatus</span>
+                    </div>
+                    <div class="row p-0 m-0">
+                        <span class="small" style="font-style:oblique"> @item.suggestionAction</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer p-1 row ml-2 mr-2 mb-0 mt-0" style="background-color:transparent;text-align:center;opacity:0.6">
+
+                @if (individualLike.Where(x => x.Id == item.id).Any())
+                {
+                    <button class="btn col-2" style="font-size:9px" @onclick="()=>UnlikeSuggestion(item.id)">
+                        <span style="color:#f53845">
+                            <i class="fas fa-heart"></i>
+                        </span>
+                        <span style="color:dimgray">@listOfLikes.Where(x => x.Id == item.id).Count()</span>
+                    </button>
+                }
+                else
+                {
+                    <button class="btn col-2" style="font-size:9px" @onclick="()=>LikeSuggestion(item.id)">
+                        <span style="color:#dbdbd9">
+                            <i class="fas fa-heart"></i>
+                        </span> <span style="color:dimgray">@listOfLikes.Where(x => x.Id == item.id).Count() like</span>
+                    </button>
+                }
+                @if (item.status == "Đang chờ giải quyết")
+                {
+                    <button class="btn col-6 btn-outline-success pl-2 m-0 ml-1 mr-2" style="font-size:9px" @onclick="()=>AcceptSuggestion(item.id)"><i class="fas fa-check-square"></i> Accept</button>
+
+                    <button class="btn col-3 btn-outline-danger pl-2 m-0" style="font-size:9px" @onclick="()=>RejectSuggestion(item.id)"><i class="far fa-window-close"></i> Reject</button>
+                }
+                else
+                {
+                    <button class="btn col-10" @onclick="()=>AcceptSuggestion(item.id)"><i class="fas fa-redo"></i> Approve Again</button>
+                }
+            </div>
+        </div>
+    }
+
+</div>
+<div class="col-lg-6 col-xm-6 col-xl-6 col-sm-12">
+
+</div>
+@*<button class="btn btn-primary" @onclick="AcceptSuggestion">Add Data</button>*@
+
+@code{
+    List<Suggestion> suggestion = new List<Suggestion>();
+    List<Suggestion> suggestionFilter = new List<Suggestion>();
+    List<ListOfLike> listOfLikes = new List<ListOfLike>();
+    List<ListOfLike> individualLike = new List<ListOfLike>();
+    string isLoadAssignTask;
+    string emailAssign;
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object> InputAttribute { get; set; } =
+         new Dictionary<string, object>()
+             {
+               { "Disabled", "" },
+                                 };
+
+    // string likeSuggestion = "#dbdbd9";
+    string department;
+    string currentUser;
+    protected override async Task OnInitializedAsync()
+
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            currentUser = user.Identity.Name;
+            //currentUser = getUser;
+        }
+        else
+        {
+
+        }
+        try
+        {
+            suggestion = await Service.GetSuggestions(currentUser);
+            listOfLikes = await Service.GetListOfLike();
+        }
+        catch (ObjectDisposedException)
+        {
+
+        }
+
+
+
+        individualLike = listOfLikes.Where(x => x.userName == currentUser).ToList();
+        suggestionFilter = suggestion;
+    }
+    public async Task LikeSuggestion(string Id)
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            var currentUser = user.Identity.Name;
+            //currentUser = getUser;
+        }
+        else
+        {
+
+        }
+        await Service.LikeSuggestion(Id, currentUser);
+        listOfLikes = await Service.GetListOfLike();
+        individualLike = listOfLikes.Where(x => x.userName == currentUser).ToList();
+    }
+    public async Task UnlikeSuggestion(string Id)
+    {
+        await Service.UnlikeSuggestion(Id, currentUser);
+        //await Service.LikeSuggestion(Id, currentUser);
+        listOfLikes = await Service.GetListOfLike();
+        individualLike = listOfLikes.Where(x => x.userName == currentUser).ToList();
+    }
+    public async Task AcceptSuggestion(string Id)
+    {
+        await Service.UpdateData(Id, "Đang thực hiện");
+        suggestionFilter = await Service.GetSuggestions(currentUser);
+        await Refresh();
+    }
+    public async Task RejectSuggestion(string Id)
+    {
+        await Service.UpdateData(Id, "Không thực hiện");
+        suggestionFilter = await Service.GetSuggestions(currentUser);
+        await Refresh();
+    }
+    protected async Task FilterDepartment(ChangeEventArgs e)
+    {
+        department = e.Value.ToString();
+        if (department == "All")
+        {
+            suggestionFilter = await Service.GetSuggestions(currentUser);
+        }
+        else
+        {
+            suggestion = await Service.GetSuggestions(currentUser);
+            suggestionFilter = suggestion.Where(x => x.deptRecSug == department).ToList();
+        }
+        StateHasChanged();
+    }
+    public void AssignTask(string Id)
+    {
+        isLoadAssignTask = Id;
+    }
+    public void assignToEmail()
+    {
+        emailAssign = emailAssign.Trim().ToLower();
+        if (emailAssign.Contains("@vn.pepperl-fuchs.com"))
+        {
+            InputAttribute = new Dictionary<string, object> { { "Style", "opacity:1" } };
+        }
+        else
+        {
+            InputAttribute = new Dictionary<string, object> { { "Disabled", "" } };
+        }
+
+    }
+    public async Task saveAssign()
+    {
+        await Service.UpdateAssignTask(isLoadAssignTask, emailAssign, "Đang chờ giải quyết");
+        await Refresh();
+    }
+    public async Task Refresh()
+    {
+        suggestion = await Service.GetSuggestions(currentUser);
+        suggestionFilter = suggestion;
+        if (department != null && department != "All")
+        {
+            suggestionFilter = suggestionFilter.Where(x => x.deptRecSug == department).ToList();
+        }
+        isLoadAssignTask = null;
+        emailAssign = null;
+        StateHasChanged();
+    }
+
+}

@@ -1,0 +1,269 @@
+﻿@page "/SubmitSuggestion"
+@using ContinuousImprovement.Data
+@inherits OwningComponentBase<SuggestionService>
+
+@if (isCheck)
+{
+    <div class="card">
+        <div class="card-header">
+            <div class="row">
+                <h3 class="card-title col-10">Submit Suggestion</h3>
+                <button class="btn btn-primary col-2" @onclick="reset">
+                    Hủy
+                </button>
+            </div>
+
+        </div>
+        <div class="card-body">
+            <EditForm Model="suggestions">
+                <div class="form-group row" style="background-color:aquamarine">
+                    <div class="col-3">
+                        @suggestions.ownerCode
+                    </div>
+                    <div class="col-3">
+                        <div class="row">
+                            @suggestions.ownerSuggestion
+                        </div>
+                        <div class="row">
+                            @suggestions.ownerDept
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="row">
+                            @suggestions.email
+                        </div>
+                        <div class="row">
+                            @DateTime.Now
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label">Bộ phận đề xuất</label>
+                    <InputSelect class="form-control" @bind-Value="@suggestions.deptRecSug">
+                        <option value="@suggestions.ownerDept">@suggestions.ownerDept</option>
+                        @foreach (var item in listOfDepartments)
+                            {
+                            <option value="@item.Department">@item.Department</option>
+                            }
+                    </InputSelect>
+                </div>
+                <div class="form-group">
+                    <label class="control-label">Lợi ích dự kiến</label>
+                    <InputSelect class="form-control" @bind-Value="@suggestions.expectedBenefit">
+                        <option value="">Chọn ...</option>
+                        <option value="Chất lượng">Chất lượng</option>
+                        <option value="Giảm chi phí">Giảm chi phí</option>
+                        <option value="An toàn">An toàn</option>
+                        <option value="5S">5S</option>
+                        <option value="Khác">Khác</option>
+                    </InputSelect>
+                </div>
+                <div class="form-group">
+                    <label class="control-label">Tình trạng hiện tại</label>
+                    <InputTextArea class="form-control" @bind-Value="@suggestions.currentStatus" />
+                </div>
+                <div class="form-group">
+                    <label class="control-label">Hành động đề nghị</label>
+                    <InputTextArea class="form-control" @bind-Value="@suggestions.suggestionAction" />
+                </div>
+            </EditForm>
+            <span class="text-danger small">@warningText</span>
+        </div>
+        <div class="card-footer">
+            <button class="btn btn-block btn-success"
+                    @onclick="SaveSuggestion" data-dismiss="modal">
+                Đăng ký đề xuất
+            </button>
+        </div>
+    </div>
+}
+else
+{
+    @if (isCheckFailed)
+    {
+        <div class="card">
+            <div class="card-header">
+                <div class="row">
+                    <h3 class="card-title col-10">Bạn chưa đăng ký email, Vui lòng đăng ký bên dưới</h3>
+                    <button class="btn btn-primary col-2" @onclick="reset">
+                        Hủy
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <EditForm Model="user">
+                    <div class="form-group">
+                        <label class="control-label">MSNV</label>
+                        <InputText class="form-control" @bind-Value="@user.employeeId" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Họ và Tên</label>
+                        <InputText class="form-control" @bind-Value="@user.fullName" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Tài khoản Gmail</label>
+                        <InputText class="form-control col-6" @bind-Value="@user.Id" />
+                        <label class="form-control col-3">@@gmail.com</label>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Bộ phận</label>
+                        <InputText class="form-control" @bind-Value="@user.department" />
+                    </div>
+                </EditForm>
+            </div>
+            <div class="card-footer row">
+                
+                <button class="btn btn-block btn-success"
+                        @onclick="AddEmployee" data-dismiss="modal">
+                    Tiếp theo
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Xác nhận MSNV</h3>
+            </div>
+            <div class="card-body">
+                <EditForm Model="user">
+                    <div class="form-group">
+                        <label class="control-label text-danger">@warningText</label>
+                        @*<InputNumber class="form-control" @bind-Value="@user.employeeId" />*@
+                        <input class="form-control" type="number" placeholder="Nhập MSNV" @onchange="searchEmployee" />
+                    </div>
+                </EditForm>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-block btn-success"
+                        @onclick="()=> CheckEmployee()" data-dismiss="modal">
+                    Tiếp theo
+                </button>
+            </div>
+        </div>
+    }
+}
+@code {
+    Suggestion suggestions = new Suggestion();
+    UserProfiles user = new UserProfiles();
+    List<UserProfiles> userProfiles = new List<UserProfiles>();
+    List<ListOfDepartment> listOfDepartments = new List<ListOfDepartment>();
+    bool isCheck = false;
+    bool isCheckFailed = false;
+    string[] employeeInfo;
+    string warningText;
+    string employeeId;
+    protected override async Task OnInitializedAsync()
+    {
+        await GetListOfDepartment();
+    }
+    public async Task SaveSuggestion()
+    {
+        if (string.IsNullOrWhiteSpace(suggestions.currentStatus)
+            || string.IsNullOrWhiteSpace(suggestions.suggestionAction)
+            || string.IsNullOrEmpty(suggestions.expectedBenefit))
+        {
+            warningText = "Vui lòng nhập đầy đủ các nội dung bên trên";
+        }
+        else
+        {
+            await Service.AddNewSuggestion(suggestions);
+            reset();
+        }
+
+    }
+    public void reset()
+    {
+        isCheck = false;
+        isCheckFailed = false;
+        user = new UserProfiles();
+        suggestions = new Suggestion();
+        userProfiles = new List<UserProfiles>();
+        employeeId = null;
+        employeeInfo= new string[3];
+        warningText = "";
+    }
+    public async Task AddEmployee()
+    {
+        if (user.Id is null)
+        {
+            isCheck = true;
+            warningText = null;
+            suggestions.ownerCode = user.employeeId;
+            suggestions.email = null;
+            suggestions.ownerDept = user.department;
+            suggestions.deptRecSug = user.department;
+            suggestions.ownerSuggestion = user.fullName;
+        }
+        else
+        {
+            user.Id = user.Id + "@gmail.com";
+            await Service.AddNewEmployee(user);
+            await CheckEmployee();
+        }
+        if (!listOfDepartments.Any())
+        {
+            await GetListOfDepartment();
+        }
+    }
+    public async Task GetListOfDepartment()
+    {
+        listOfDepartments = await Service.GetListOfDepartments();
+    }
+    public async Task CheckEmployee()
+    {
+        if (employeeId != null)
+        {
+            userProfiles = await Service.GetUserProfile(employeeId);
+            if (userProfiles.Any())
+            {
+                isCheck = true;
+                warningText = null;
+                if (!listOfDepartments.Any())
+                {
+                    await GetListOfDepartment();
+                }
+                //suggestions.ownerCode = userProfiles.Select(x => x.employeeId).FirstOrDefault();
+                foreach (var item in userProfiles)
+                {
+                    suggestions.ownerCode = item.employeeId;
+                    suggestions.email = item.Id;
+                    suggestions.ownerDept = item.department;
+                    suggestions.deptRecSug = item.department;
+                    suggestions.ownerSuggestion = item.fullName;
+                }
+            }
+            else
+            {
+                employeeInfo = Service.GetEmployeeInfo(employeeId);
+                //employeeInfo = Service.CheckName(user.employeeId);
+                if (employeeInfo[1] == "")
+                {
+                    warningText = "Vui lòng kiểm tra lại MSNV";
+                }
+                else
+                {
+                    user.employeeId = employeeInfo[0];
+                    user.fullName = employeeInfo[1];
+                    user.department = employeeInfo[2];
+                    isCheckFailed = true;
+                }
+
+            }
+        }
+        else
+        {
+            warningText = "Vui lòng nhập MSNV";
+        }
+
+        //isCheck = true;
+
+    }
+    public async Task searchEmployee(ChangeEventArgs e)
+    {
+        var id = int.Parse(e.Value.ToString());
+        employeeId = id.ToString();
+        await CheckEmployee();
+    }
+}
