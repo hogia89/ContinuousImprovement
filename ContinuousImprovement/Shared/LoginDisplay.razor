@@ -1,3 +1,5 @@
 ﻿<AuthorizeView>
-    Hello, @context.User.Identity.Name
+    <img class="img-profile rounded-circle" src="/img/avatar/other1.jpg" onerror="this.onerror=null;this.src='/img/avatar/other.jpg'" width="35" height="35">
+    <span class="mr-2 d-none d-lg-inline text-white">&nbsp; Welcome, @context.User.Identity.Name.Substring((context.User.Identity.Name).IndexOf("\\") + 1)</span>
+    @*Hello, @context.User.Identity.Name*@
 </AuthorizeView>

@@ -1,142 +1,437 @@
 ﻿@page "/mytask"
 @using ContinuousImprovement.Data
+@using ContinuousImprovement.Model
+@using BlazorInputFile
+@inject IFileUpload fileUpload
 @inherits OwningComponentBase<ActionService>
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager nav
 
-<select class="col-2" title="Select Department" @onchange="FilterDepartment">
-    @if (department != null)
-    {
-        <option>
-            @department
-        </option>
-        <option>
-            All
-        </option>
-    }
-    else if (department == "All")
-    {
-        <option>
-            All
-        </option>
-    }
-    else
-    {
-        <option>All</option>
-    }
-    @foreach (var item in suggestion.OrderBy(x => x.deptRecSug).Select(x => x.deptRecSug).Distinct())
-    {
-
-        <option value="@item">
-            @item
-        </option>
-    }
-
-</select>
-<div class="col-lg-6 col-xm-6 col-sm-12">
-    @foreach (var item in suggestion.OrderByDescending(x => x.approveDt))
-    {
-        <div class="card p-0 m-3">
-            <div class="card-header p-0 pl-3">
-                <div class="row">
-                    <div class="col-1" style="font-size:30px">
-                        <i class="fas fa-user-astronaut"></i>
-                    </div>
-                    <div class="col-11 pt-1">
+@if (isShowPicture)
+{
+    <div id="myModal" class="modal-backdrop">
+        <span class="close" @onclick="ClosePicture">&times;</span>
+        <img class="modal-content" style="margin-top:10vh;max-height:80vh" src=@srcOpenImage id="img01">
+        <div id="caption"></div>
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-lg-10 col-xm-10 col-xl-10 col-sm-12" style="background-color:#d7d7db">
+            @foreach (var item in suggestionFilter.OrderByDescending(x => x.ApproveDt))
+            {
+                <div class="card p-0 m-3 bg-white" style="border-color:white;border-radius:15px">
+                    <div class="card-header p-0 pl-3 bg-white" style="border-radius:15px 15px 0 0">
                         <div class="row">
-                            <span style="font-weight:200">@item.ownerSuggestion <span style="color:lightgray;font-size:10px">suggest for @item.deptRecSug</span></span>
+                            <div class="col-1" style="font-size:30px">
+                                <i class="fas fa-user-astronaut"></i>
+                            </div>
+                            <div class="col-11 pt-1">
+                                <div class="row">
+                                    <span style="font-weight:200">@item.OwnerSuggestion <span style="color:lightgray;font-size:10px">suggest for @item.DeptRecSug</span></span>
+                                </div>
+                                <div class="row">
+                                    <span class="pl-2" style="font-size:8px;color:@DisplayColorOfStatus(item.IndicatorOfStatus)[1]">
+                                        @item.Status
+                                        @switch (item.IndicatorOfStatus)
+                                        {
+                                            //case "Đang chờ thực hiện":
+                                            case 3:
+                                                <span style="font-size:8px;color:lightgray"> by @item.OwnerAction from @item.AssignDt</span>
+                                                break;
+                                            //case "Đang thực hiện":
+                                            case 4:
+                                                <span style="font-size:8px;color:lightgray"> by @item.OwnerAction from @item.AssignDt to @item.PlanFinishActionDt</span>
+                                                break;
+                                            //case "Chờ duyệt hành động":
+                                            case 5:
+                                                <span style="font-size:8px;color:lightgray"> waitting approval by @item.ApproveActionBy</span>
+                                                break;
+                                            //case "Hoàn tất":
+                                            case 6:
+                                                <span style="font-size:8px;color:lightgray"> by @item.OwnerAction</span>
+                                                break;
+                                            //case "Không thực hiện":
+                                            case 7:
+                                                <span style="font-size:8px;color:lightgray"> by @item.ApproveSuggBy at @item.SubmitDate</span>
+                                                break;
+                                            //case "Hành động không hiệu quả"
+                                            case 8:
+                                                <span style="font-size:8px;color:lightgray"> confirm by @item.ApproveActionBy at @item.ApproveDt</span>
+                                                break;
+                                            default:
+                                                <span class="pl-2" style="font-size:8px;color:lightgray"> @item.Status at @item.SubmitDate</span>
+                                                break;
+                                        }
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="row">
-                            @if (item.status == "Đang chờ giải quyết")
+                    </div>
+                    <div class="card-body p-0 m-0 row">
+                        <div class="col-4 p-1 container">
+                            @if (item.ImageUriBefore != null && isShowUpUploadImage != item.SuggestionId)
                             {
-                                <span class="pl-2" style="font-size:8px;color:lightsalmon"> @item.status<span style="font-size:8px;color:lightgray"> by @item.ownerAction from @item.assignDt.ToDateTime().AddHours(7)</span></span>
+                                <img id="myImg" src=@("/upload/images/before/"+item.ImageUriBefore) @onclick="@(()=>ShowPicture(item.SuggestionId,"before"))" alt="Before" style="width:100%;max-width:300px">
+                                <div class="top-left small bg-danger" style="width:40px;height:20px;opacity:0.4;border-radius:3px">Before</div>
+                                <div class="top-right small">
+                                    <a class="text-light" style="cursor:pointer" @onclick="()=>ShowUpUploadImageBefore(item.SuggestionId)" title="Click to Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                                //<img src="@item.ImageUriBefore" width="120" height="100" object-fit="contain" />
                             }
                             else
                             {
-                                <span class="pl-2" style="font-size:8px;color:lightgray"> @item.status at @item.submitDate.ToDateTime().AddHours(7)</span>
+                                if (isShowUpUploadImage == item.SuggestionId)
+                                {
+                                    <a class="top-right text-danger" style="cursor:pointer" @onclick="ClosePictureBeforeUpload" title="Click to Close">&times;</a>
+                                    <InputFile OnChange="HandleFileSelected" class="small" placeholder="Upload" />
+
+                                }
+                                else
+                                {
+                                    <img src="https://pngimage.net/wp-content/uploads/2018/06/img-icon-png-3.png"
+                                         width="120" height="100" object-fit="contain" style="cursor:pointer;opacity:0.1" @onclick="()=>ShowUpUploadImageBefore(item.SuggestionId)" />
+                                    <div class="top-left small bg-danger" style="width:40px;height:20px;opacity:0.4;border-radius:3px">Before</div>
+                                }
                             }
-
                         </div>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body p-0 m-0 row">
-                <div class="col-3 p-1">
-                    @if (item.imageUri != null)
-                    {
-                        <img src="@item.imageUri" width="120" height="100" object-fit="contain" />
-                    }
-                    else
-                    {
-                        <img src="https://pngimage.net/wp-content/uploads/2018/06/img-icon-png-3.png" width="120" height="100" object-fit="contain" style="opacity:0.1" />
-                    }
-                </div>
-                <div class="col-9 p-1">
-                    <div class="row p-0 m-0">
-                        <span class="small" style="font-weight:bold">@item.currentStatus</span>
-                    </div>
-                    <div class="row p-0 m-0">
-                        <span class="small" style="font-style:oblique"> @item.suggestionAction</span>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer p-1 row ml-2 mr-2 mb-0 mt-0" style="background-color:transparent;text-align:center;opacity:0.6">
+                        <div class="col-8 p-1">
+                            <div class="row p-0 m-0">
+                                <span class="small" style="font-weight:bold">@item.CurrentStatus</span>
+                            </div>
+                            <div class="row p-0 m-0">
+                                <span class="small" style="font-style:oblique"> @item.SuggestionAction</span>
+                            </div>
+                        </div>
 
-                @if (individualLike.Where(x => x.Id == item.id).Any())
-                {
-                    <button class="btn col-2" style="font-size:9px" @onclick="()=>UnlikeSuggestion(item.id)">
-                        <span style="color:#f53845">
-                            <i class="fas fa-heart"></i>
-                        </span>
-                        <span style="color:dimgray">@listOfLikes.Where(x => x.Id == item.id).Count()</span>
-                    </button>
-                }
-                else
-                {
-                    <button class="btn col-2" style="font-size:9px" @onclick="()=>LikeSuggestion(item.id)">
-                        <span style="color:#dbdbd9">
-                            <i class="fas fa-heart"></i>
-                        </span> <span style="color:dimgray">@listOfLikes.Where(x => x.Id == item.id).Count() like</span>
-                    </button>
-                }
-                @if (item.status == "Đang chờ giải quyết")
-                {
-                    <button class="btn col-6 btn-outline-success pl-2 m-0 ml-1 mr-2" style="font-size:9px" @onclick="()=>AcceptSuggestion(item.id)"><i class="fas fa-check-square"></i> Accept</button>
 
-                    <button class="btn col-3 btn-outline-danger pl-2 m-0" style="font-size:9px" @onclick="()=>RejectSuggestion(item.id)"><i class="far fa-window-close"></i> Reject</button>
-                }
-                else
-                {
-                    <button class="btn col-10" @onclick="()=>AcceptSuggestion(item.id)"><i class="fas fa-redo"></i> Approve Again</button>
-                }
-            </div>
+                        @if (item.IndicatorOfStatus >= 5 && item.IndicatorOfStatus != 7 && isShowUpActionTab != item.SuggestionId)
+                        {
+                            @*<span class="col-12 small" style="text-align:center">--------------------------------------------</span>*@
+                            <div class="col-4 p-1 container">
+                                @if (item.ImageUriAfter != null)
+                                {
+                                    <img id="myImg" src=@("/upload/images/after/"+item.ImageUriAfter) @onclick="@(()=>ShowPicture(item.SuggestionId,"after"))" alt="After" style="width:100%;max-width:300px">
+                                    <div class="top-left small bg-success" style="width:40px;height:20px;opacity:0.8;border-radius:3px">After</div>
+                                }
+                                else
+                                {
+                                    <img src="https://pngimage.net/wp-content/uploads/2018/06/img-icon-png-3.png" width="120" height="100" object-fit="contain" style="opacity:0.1" />
+                                    <div class="top-left small bg-success" style="width:40px;height:20px;opacity:0.8;border-radius:3px">After</div>
+                                }
+                            </div>
+                            <div class="col-8 p-1">
+                                <div class="row p-0 m-0">
+                                    <span class="small" style="font-weight:bold">@item.ActionDesc</span>
+                                </div>
+                                <div class="row p-0 m-0">
+                                    <span class="small" style="font-style:oblique"> @item.ActionEffectiveness</span>
+                                </div>
+                            </div>
+                        }
+                        @if (isShowUpActionTab == item.SuggestionId)
+                        {
+                            @*<span class="col-12 small" style="text-align:center">--------------------------------------------</span>*@
+                            @*<div class="col-4 p-1 container">
+                            @if (item.ImageUriAfter != null)
+                            {
+                                <img id="myImg" src=@("/upload/images/after/"+item.ImageUriAfter) @onclick="@(()=>ShowPicture(item.SuggestionId,"after"))" alt="After" style="width:100%;max-width:300px">
+                                <div class="top-left small bg-success" style="width:40px;height:20px;opacity:0.8;border-radius:3px">After</div>
+                            }
+                            else
+                            {
+                                <img src="https://pngimage.net/wp-content/uploads/2018/06/img-icon-png-3.png" width="120" height="100" object-fit="contain" style="opacity:0.1" />
+                                <div class="top-left small bg-success" style="width:40px;height:20px;opacity:0.8;border-radius:3px">After</div>
+                            }
+                        </div>*@
+                            <div class="col-12 p-1 card">
+                                <div class="card-header m-0">
+                                    <h6 class="card-title">Submit Action</h6>
+                                </div>
+                                <div class="card-body">
+                                    <EditForm Model="suggestions">
+                                        <DataAnnotationsValidator />
+                                        <ValidationSummary />
+                                        <div class="row p-0 m-1">
+                                            <label class="col-4 small pl-0"><b>Action Description (*)</b></label>
+                                            <InputTextArea class="col-8 small form-control" @bind-Value="@suggestions.ActionDesc" />
+                                        </div>
+                                        <div class="row p-0 m-1">
+                                            <label class="col-4 small pl-0"><b>Action Effectiveness (*)</b></label>
+                                            <InputTextArea class="col-8 small form-control" @bind-Value="@suggestions.ActionEffectiveness" />
+                                        </div>
+                                        <div class="row p-0 m-1">
+                                            <label class="col-4 small pl-0"><b>CIF Number</b></label>
+                                            <InputText class="col-8 small form-control" @bind-Value="@suggestions.Cifno" />
+                                        </div>
+                                        <div class="row p-0 m-1">
+                                            <label class="col-4 small pl-0"><b>Attach Picture</b></label>
+                                            @*<div class="col-8 small form-control">*@
+                                            <InputFile OnChange="HandleFileSelected" class="col-8 small form-control" />
+                                            @*</div>*@
+                                        </div>
+                                        <div class="row p-0 m-1">
+                                            <label class="col-4 small pl-0"><b>Approval by (*)</b></label>
+                                            <InputText class="col-8 small form-control" @bind-Value="@suggestions.ApproveActionBy" />
+                                        </div>
+
+                                        @if (showMessageSubmitForm != null)
+                                        {
+                                            <div class="row p-0 m-0">
+                                                <div class="col-12">
+                                                    <span class="text-danger">@showMessageSubmitForm</span>
+                                                </div>
+                                            </div>
+                                        }
+                                    </EditForm>
+
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="card-footer p-1 row ml-2 mr-2 mb-0 mt-0" style="background-color:transparent;text-align:center;opacity:0.6">
+                        @if (listOfLikes.Where(x => x.SuggestionId == item.SuggestionId && x.UserName == currentUser).Any())
+                        {
+                            <button class="btn col-2 shadow-none" style="font-size:9px" @onclick="() => UnlikeSuggestion(item.SuggestionId)">
+                                <span style="color:#f53845">
+                                    <i class="fas fa-heart"></i>
+                                </span>
+                                <span style="color:dimgray">@listOfLikes.Where(x => x.SuggestionId == item.SuggestionId).Count()</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn col-2 shadow-none" style="font-size:9px" @onclick="() => LikeSuggestion(item.SuggestionId,item.OwnerCode,item.SubmitDate)">
+                                <span style="color:#dbdbd9">
+                                    <i class="fas fa-heart"></i>
+                                </span>
+                                <span style="color:dimgray">@listOfLikes.Where(x => x.SuggestionId == item.SuggestionId).Count()</span>
+                            </button>
+                        }
+
+
+                        @if (isLoadsubmitPlanDt != item.SuggestionId)
+                        {
+                            @*@if (item.Status == "Không thực hiện")*@
+                            @if (item.IndicatorOfStatus == 7)
+                            {
+                                <button class="btn col-10" @onclick="()=>AcceptSuggestion(item.SuggestionId)"><i class="fas fa-redo"></i> Approve Again</button>
+                            }
+                            //else if (item.Status == "Đang thực hiện")
+                            else if (item.IndicatorOfStatus == 4)
+                            {
+                                @if (isShowUpActionTab == item.SuggestionId)
+                                {
+                                    <button class="btn col-6 btn-outline-success pl-2 m-0 ml-1 mr-2" style="font-size:9px" @onclick="()=>SaveAction(item.SuggestionId,suggestions.ImageUriAfter)"><i class="fas fa-check-square"></i> Submit</button>
+                                    <button class="btn col-3 btn-outline-danger pl-2 m-0" style="font-size:9px" @onclick="@CancelInputAction"><i class="far fa-window-close"></i> Cancel</button>
+                                }
+                                else
+                                {
+                                    <button class="btn col-10 pl-2 m-0 btn-outline-success" style="font-size:9px" @onclick="()=>ShowUpActionTab(item.SuggestionId)">Submit Action</button>
+                                }
+                            }
+                            //else if (item.Status == "Chờ duyệt hành động" && isShowUpActionTab != item.SuggestionId
+                            else if (item.IndicatorOfStatus == 5 && isShowUpActionTab != item.SuggestionId)
+                            {
+                                <button class="btn col-10 pl-2 m-0" style="font-size:9px" @onclick="()=>ShowUpActionTab(item.SuggestionId)"><i class="fas fa-edit"></i> Edit</button>
+                            }
+                            //else if (item.Status == "Hoàn tất" && isShowUpActionTab != item.SuggestionId
+                            else if (item.IndicatorOfStatus == 6 && isShowUpActionTab != item.SuggestionId)
+                            {
+                                @*<button class="btn col-10 pl-2 m-0 btn-outline-success" style="font-size:9px" @onclick="()=>ShowUpActionTab(item.SuggestionId)"><i class="fas fa-repeat"></i> Submit Again</button>*@
+                            }
+                            //else if (item.Status == "Hành động không hiệu quả" && isShowUpActionTab != item.SuggestionId
+                            else if (item.IndicatorOfStatus == 8 && isShowUpActionTab != item.SuggestionId)
+                            {
+                                <button class="btn col-10 pl-2 m-0 btn-outline-success" style="font-size:9px" @onclick="()=>ShowUpActionTab(item.SuggestionId)"><i class="fas fa-repeat"></i> Submit Again</button>
+                            }
+                            else if (isShowUpActionTab == item.SuggestionId)
+                            {
+                                <button class="btn col-6 btn-outline-success pl-2 m-0 ml-1 mr-2" style="font-size:9px" @onclick="()=>SaveAction(item.SuggestionId,suggestions.ImageUriAfter)"><i class="fas fa-check-square"></i> Submit</button>
+                                <button class="btn col-3 btn-outline-danger pl-2 m-0" style="font-size:9px" @onclick="@CancelInputAction"><i class="far fa-window-close"></i> Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="btn col-6 btn-outline-success pl-2 m-0 ml-1 mr-2" style="font-size:9px" @onclick="()=>AcceptSuggestion(item.SuggestionId)"><i class="fas fa-check-square"></i> Accept</button>
+                                <button class="btn col-3 btn-outline-danger pl-2 m-0" style="font-size:9px" @onclick="()=>RejectSuggestion(item.SuggestionId)"><i class="far fa-window-close"></i> Reject</button>
+                            }
+                        }
+                        else
+                        {
+                            <input class="form-control col-6 pl-2 m-0" style="font-size:9px" type="date" placeholder="Input plan finish date" @bind-value="@planDt" @bind-value:event="oninput" @onchange="submitPlanDate" autofocus />
+                            <button class="btn col-4 text-success p-0" @onclick="()=>savePlanDt(item.SuggestionId)" style="color:dimgray;font-size:9px" @attributes="InputAttribute"><i class="fas fa-hands-helping"></i>Confirm</button>
+                        }
+                    </div>
+                    @if (cipfComments.Where(x => x.SuggestionId == item.SuggestionId).Any())
+                    {
+                        <div class="card-footer p-1 row ml-2 mr-2 mb-0 mt-0" style="background-color:transparent;text-align:center;opacity:0.6">
+                            @foreach (var item1 in cipfComments.Where(x => x.SuggestionId == item.SuggestionId).OrderByDescending(x => x.DateComment).Take(countCommentShow))
+                            {
+                                <span class="align-content-center p-2" style="border-radius:18px;background-color:#edebeb;text-wrap:normal;border:none;min-height:30px;font-size:10px;text-align:left"><a style="text-decoration:none;color:#043fbd">@item1.UserComment</a> @item1.Comment</span>
+                                <div class="row col-12 pl-2">
+                                    <span class="col-12" style="text-align:left;font-size:8px">
+                                        @item1.DateComment &nbsp
+                                        @if (item1.UserComment == currentUser)
+                                        {
+                                            <a style="cursor:pointer;text-align:left;font-size:8px;color:#022369" @onclick="()=>DeleteComment(item1.Id)">Delete</a>
+                                        }
+                                    </span>
+                                </div>
+                                <br />
+                            }
+                            @if (cipfComments.Where(x => x.SuggestionId == item.SuggestionId).Count() > countCommentShow)
+                            {
+                                <a class="col-12" style="cursor:pointer;text-align:left;font-size:10px;color:#022369" @onclick="()=> { countCommentShow += 5; }">View more @((cipfComments.Where(x => x.SuggestionId == item.SuggestionId).Count() - countCommentShow == 1) ? cipfComments.Where(x => x.SuggestionId == item.SuggestionId).Count() - countCommentShow + " comment" : cipfComments.Where(x => x.SuggestionId == item.SuggestionId).Count() - countCommentShow + " comments")</a>
+                            }
+                        </div>
+                    }
+                    @*@if (item.IndicatorOfStatus <= 2 || item.IndicatorOfStatus == 7)
+                {*@
+                    <div class="card-footer p-1 row ml-2 mr-2 mb-0 mt-0" style="background-color:transparent;text-align:center;opacity:0.6">
+                        <EditForm Model="cipfComment" class="col-12 row">
+                            <InputText class="form-control shadow-none col-10" style="border-radius:20px;background-color:#faf7f7;white-space:pre-wrap" @bind-Value="@cipfComment.Comment" placeholder="Write a comment..." />
+                            <button type="submit" class="btn col-2" @onclick="()=>SubmitComment(item.SuggestionId,item.SubmitDate)" style="cursor:pointer;border:none;background-color:transparent"><i class="fas fa-paper-plane"></i></button>
+                        </EditForm>
+                    </div>
+                    @*}*@
+                </div>
+            }
+
         </div>
-    }
+        <div class="col-lg-2 col-xl-2 col-xm-2 col-sm-12 sidebarleft" style="opacity:0.6">
+            <div class="row form-row p-1">
+                <div class="col-12">
+                    <h4>Dashboard <a class="btn text-success" @onclick="@Refresh" style="cursor:pointer;background-color:transparent"><i class="fas fa-sync-alt"></i></a></h4>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-4 p-1" style="text-align:right">
+                    <span style="font-size: 10px">Select Year</span>
+                </div>
+                <div class="col-7 p-1">
+                    <select class="form-control" @onchange="FilterYear" style="font-size:10px">
+                        @for (int i = 0; i < 10; i++)
+                        {
+                            <option value="@(currentYear - i)">@(currentYear - i)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            @if (suggestion.Any())
+            {
+                @for (int i = 3; i <= 7; i++)
+                {
+                    double count = 0;
 
-</div>
-<div class="col-lg-6 col-xm-6 col-xl-6 col-sm-12">
+                    @switch (i)
+                    {
+                        case 3:
+                            count = suggestion.Where(x => x.IndicatorOfStatus == 3).Count();
+                            <div class="card mb-1 text-center @(count==0?"bg-secondary":(selectedTab==3?"bg-success":""))" style="width:11.5rem;height:6rem;cursor:pointer"
+                                 @onclick="()=> { suggestionFilter = suggestion.Where(x => x.IndicatorOfStatus == 3).ToList();selectedTab = 3; }">
+                                <div class="card-body">
+                                    <span class="card-text">New Task</span>
+                                    <h5 class="card-title">@count</h5>
+                                </div>
+                            </div>
+                            break;
+                        case 4:
+                            count = suggestion.Where(x => x.IndicatorOfStatus == 4).Count();
+                            <div class="card mb-1 text-center @(count==0?"bg-secondary":(selectedTab==4?"bg-success":""))" style="width:11.5rem;height:6rem;cursor:pointer"
+                                 @onclick="()=> { suggestionFilter = suggestion.Where(x => x.IndicatorOfStatus == 4).ToList();selectedTab = 4; }">
+                                <div class="card-body">
+                                    <span class="card-text">Activated</span>
+                                    <h5 class="card-title">@count</h5>
+                                </div>
+                            </div>
+                            break;
+                        case 5:
+                            count = suggestion.Where(x => x.IndicatorOfStatus == 5).Count();
+                            <div class="card mb-1 text-center @(count==0?"bg-secondary":(selectedTab==5?"bg-success":""))" style="width:11.5rem;height:6rem;cursor:pointer"
+                                 @onclick="()=> { suggestionFilter = suggestion.Where(x => x.IndicatorOfStatus == 5).ToList();selectedTab = 5; }">
+                                <div class="card-body">
+                                    <span class="card-text">Pending Approval</span>
+                                    <h5 class="card-title">@count</h5>
+                                </div>
+                            </div>
+                            break;
 
-</div>
+                        case 6:
+                            count = suggestion.Where(x => x.IndicatorOfStatus == 6).Count();
+                            <div class="card mb-1 text-center @(count==0?"bg-secondary":(selectedTab==6?"bg-success":""))" style="width:11.5rem;height:6rem;cursor:pointer"
+                                 @onclick="()=> { suggestionFilter = suggestion.Where(x => x.IndicatorOfStatus == 6).ToList();selectedTab = 6; }">
+                                <div class="card-body">
+                                    <span class="card-text">Closed</span>
+                                    <h5 class="card-title">@count</h5>
+                                </div>
+                            </div>
+                            break;
+                        case 7:
+                            count = suggestion.Where(x => x.IndicatorOfStatus == 7).Count();
+                            <div class="card mb-1 text-center @(count==0?"bg-secondary":(selectedTab==7?"bg-success":""))" style="width:11.5rem;height:6rem;cursor:pointer"
+                                 @onclick="()=> { suggestionFilter = suggestion.Where(x => x.IndicatorOfStatus == 7).ToList();selectedTab = 7; }">
+                                <div class="card-body">
+                                    <span class="card-text">Rejected</span>
+                                    <h5 class="card-title">@count</h5>
+                                </div>
+                            </div>
+                            break;
+                    }
+
+                }
+            }
+            else
+            {
+                <div class="row m-4">
+                    <span>No data</span>
+                </div>
+            }
+        </div>
+
+    </div>
+}
+
 @*<button class="btn btn-primary" @onclick="AcceptSuggestion">Add Data</button>*@
 
 @code{
-    List<Suggestion> suggestion = new List<Suggestion>();
-    List<Suggestion> suggestionFilter = new List<Suggestion>();
-    List<ListOfLike> listOfLikes = new List<ListOfLike>();
-    List<ListOfLike> individualLike = new List<ListOfLike>();
-    string isLoadAssignTask;
-    string emailAssign;
+    List<CipfSuggestion> suggestion = new List<CipfSuggestion>();
+    List<CipfSuggestion> suggestionFilter = new List<CipfSuggestion>();
+    List<CipfListOfLike> listOfLikes = new List<CipfListOfLike>();
+    CipfSuggestion suggestions = new CipfSuggestion();
+    string isLoadsubmitPlanDt = null;
+    string isShowUpActionTab = null;
+    string isShowUpUploadImage = null;
+    IFileListEntry file = null;
+    string showMessageSubmitForm = null;
+    bool isShowPicture = false;
+    string srcOpenImage = null;
+    int currentYear;
+    int filterYear;
+    string filterDept = null;
+    int filterStatus = 0;
+    int selectedTab = 1;
+    //Display comment
+    CipfComment cipfComment = new CipfComment();
+    List<CipfComment> cipfComments = new List<CipfComment>();
+    int countCommentShow = 5;
+    //string isLoadAssignTask;
+
+    DateTime planDt;
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object> InputAttribute { get; set; } =
          new Dictionary<string, object>()
              {
                { "Disabled", "" },
-                                 };
-
+                                                                 };
     // string likeSuggestion = "#dbdbd9";
     string department;
     string currentUser;
+
     protected override async Task OnInitializedAsync()
 
     {
@@ -145,85 +440,99 @@
         if (user.Identity.IsAuthenticated)
         {
             currentUser = user.Identity.Name;
-            //currentUser = getUser;
         }
         else
         {
 
         }
+        currentYear = DateTime.Today.Year;
+        filterYear = currentYear;
+        filterStatus = 3;
         try
         {
-            suggestion = await Service.GetSuggestions(currentUser);
-            listOfLikes = await Service.GetListOfLike();
+            await GetSugg(filterYear);
         }
         catch (ObjectDisposedException)
         {
 
         }
-
-
-
-        individualLike = listOfLikes.Where(x => x.userName == currentUser).ToList();
-        suggestionFilter = suggestion;
+        suggestionFilter = suggestion.Where(x => x.IndicatorOfStatus == filterStatus).ToList();
     }
-    public async Task LikeSuggestion(string Id)
-    {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        if (user.Identity.IsAuthenticated)
-        {
-            var currentUser = user.Identity.Name;
-            //currentUser = getUser;
-        }
-        else
-        {
-
-        }
-        await Service.LikeSuggestion(Id, currentUser);
-        listOfLikes = await Service.GetListOfLike();
-        individualLike = listOfLikes.Where(x => x.userName == currentUser).ToList();
-    }
-    public async Task UnlikeSuggestion(string Id)
-    {
-        await Service.UnlikeSuggestion(Id, currentUser);
-        //await Service.LikeSuggestion(Id, currentUser);
-        listOfLikes = await Service.GetListOfLike();
-        individualLike = listOfLikes.Where(x => x.userName == currentUser).ToList();
-    }
-    public async Task AcceptSuggestion(string Id)
-    {
-        await Service.UpdateData(Id, "Đang thực hiện");
-        suggestionFilter = await Service.GetSuggestions(currentUser);
-        await Refresh();
-    }
-    public async Task RejectSuggestion(string Id)
-    {
-        await Service.UpdateData(Id, "Không thực hiện");
-        suggestionFilter = await Service.GetSuggestions(currentUser);
-        await Refresh();
-    }
+    //FIlter department
     protected async Task FilterDepartment(ChangeEventArgs e)
     {
         department = e.Value.ToString();
         if (department == "All")
         {
-            suggestionFilter = await Service.GetSuggestions(currentUser);
+            await GetSugg(filterYear);
+            suggestionFilter = suggestion;
         }
         else
         {
-            suggestion = await Service.GetSuggestions(currentUser);
-            suggestionFilter = suggestion.Where(x => x.deptRecSug == department).ToList();
+            await GetSugg(filterYear);
+            suggestionFilter = suggestion.Where(x => x.DeptRecSug == department).ToList();
         }
         StateHasChanged();
     }
-    public void AssignTask(string Id)
+    //Filter year
+    public async Task FilterYear(ChangeEventArgs e)
     {
-        isLoadAssignTask = Id;
+
+        filterYear = int.Parse(e.Value.ToString());
+        await GetSugg(filterYear);
+        suggestionFilter = suggestion.Where(x => x.SubmitDate.Year == filterYear).ToList();
     }
-    public void assignToEmail()
+    //Filter department anas Status
+    public void Filter(string department, int status) //int i)
     {
-        emailAssign = emailAssign.Trim().ToLower();
-        if (emailAssign.Contains("@vn.pepperl-fuchs.com"))
+        filterStatus = status;
+        filterDept = department;
+        suggestionFilter = suggestion;
+
+        // sorting department
+        if (filterDept != null)
+        {
+            suggestionFilter = suggestion.Where(x => x.DeptRecSug == filterDept).ToList();
+        }
+
+        //sorting status
+        if (filterStatus != 0)
+        {
+            suggestionFilter = suggestionFilter.Where(x => x.IndicatorOfStatus == filterStatus).ToList();
+        }
+        //LoadChart();
+    }
+    //public void AssignTask(string Id)
+    //{
+    //    isLoadAssignTask = Id;
+    //}
+
+    //Like suggestion
+    public async Task LikeSuggestion(string Id, string ownerCode, DateTime submitDt)
+    {
+        await Service.LikeSuggestion(Id, currentUser, ownerCode, submitDt);
+        await Refresh();
+    }
+    //Unlike suggestion
+    public async Task UnlikeSuggestion(string Id)
+    {
+        await Service.UnlikeSuggestion(Id, currentUser);
+        await Refresh();
+    }
+    public async Task RejectSuggestion(string suggestionId)
+    {
+        await Service.RejectSuggestion(suggestionId, currentUser);
+    }
+    public void AcceptSuggestion(string suggestionId)
+    {
+        isLoadsubmitPlanDt = suggestionId;
+        planDt = DateTime.Today;
+
+    }
+    //Asign email to
+    public void submitPlanDate()
+    {
+        if (planDt > DateTime.Now)
         {
             InputAttribute = new Dictionary<string, object> { { "Style", "opacity:1" } };
         }
@@ -233,22 +542,208 @@
         }
 
     }
-    public async Task saveAssign()
+    public async Task savePlanDt(string suggestionId)
     {
-        await Service.UpdateAssignTask(isLoadAssignTask, emailAssign, "Đang chờ giải quyết");
+        await Service.UpdatePlanDt(suggestionId, planDt, currentUser);
         await Refresh();
     }
     public async Task Refresh()
     {
-        suggestion = await Service.GetSuggestions(currentUser);
+        await GetSugg(filterYear);
+        countCommentShow = 5;
         suggestionFilter = suggestion;
+        if (filterDept != null)
+        {
+            suggestionFilter = suggestion.Where(x => x.DeptRecSug == filterDept).ToList();
+        }
         if (department != null && department != "All")
         {
-            suggestionFilter = suggestionFilter.Where(x => x.deptRecSug == department).ToList();
+            suggestionFilter = suggestionFilter.Where(x => x.DeptRecSug == department).ToList();
         }
-        isLoadAssignTask = null;
-        emailAssign = null;
+        //sorting status
+        if (filterStatus != 0)
+        {
+            suggestionFilter = suggestionFilter.Where(x => x.IndicatorOfStatus == filterStatus).ToList();
+        }
+        isLoadsubmitPlanDt = null;
+        //planDt = null;
         StateHasChanged();
     }
+
+    public async Task GetSugg(int yr)
+    {
+        listOfLikes = await Service.GetListOfLike(yr);
+        cipfComments = await Service.GetComment(yr);
+        suggestion = await Service.GetMyTask(currentUser, yr);
+    }
+    //Show action update
+    public void ShowUpActionTab(string id)
+    {
+        isShowUpActionTab = id;
+        foreach (var item in suggestion.Where(x => x.SuggestionId == id).ToList())
+        {
+            suggestions.ActionDesc = item.ActionDesc;
+            suggestions.ActionEffectiveness = item.ActionEffectiveness;
+            suggestions.Cifno = item.Cifno;
+            suggestions.ApproveActionBy = item.ApproveActionBy;
+            suggestions.ImageUriAfter = item.ImageUriAfter;
+        }
+    }
+
+    //Show upload image picture
+    public void ShowUpUploadImageBefore(string id)
+    {
+        isShowUpUploadImage = id;
+
+    }
+    //Dismiss input action
+    public void CancelInputAction()
+    {
+        isShowUpActionTab = null;
+    }
+    //Dismiss upload image before
+    public void ClosePictureBeforeUpload()
+    {
+        isShowUpUploadImage = null;
+    }
+    //Update action
+    public async Task SaveAction(string id, string img)
+    {
+        //Check input information
+        if (suggestions.ActionDesc is null || suggestions.ActionEffectiveness is null || suggestions.ApproveActionBy is null)
+        {
+            showMessageSubmitForm = "Please check and input all information (*)";
+        }
+        else if (!suggestions.ApproveActionBy.Contains("@vn.pepperl-fuchs.com"))
+        {
+            showMessageSubmitForm = "Email adress is incorrect, Please check again";
+        }
+        else
+        {
+            showMessageSubmitForm = null;
+            await Service.UpdateAction(id, suggestions.ActionDesc, suggestions.ActionEffectiveness, suggestions.Cifno, img, suggestions.ApproveActionBy);
+            isShowUpActionTab = null;
+            StateHasChanged();
+        }
+
+    }
+
+    //Update before picture
+    //public async Task SaveBeforePicture(string id)
+    //{
+    //    //Check input information
+    //    if (file != null)
+    //    {
+    //        showMessageSubmitForm = null;
+    //        await Service.UpdateBeforePicture(id);
+    //        isShowUpUploadImage = null;
+    //        StateHasChanged();
+    //    }
+    //    else
+    //    {
+    //        showMessageSubmitForm = "Please choose image";
+    //    }
+
+    //}
+
+    //Upload image
+    string imgData = String.Empty;
+    async Task HandleFileSelected(IFileListEntry[] files)
+    {
+        file = files.FirstOrDefault();
+        if (file != null)
+        {
+            if (isShowUpActionTab != null)
+            {
+                await fileUpload.Upload(file, isShowUpActionTab, "after");
+            }
+            else if (isShowUpUploadImage != null)
+            {
+                await fileUpload.Upload(file, isShowUpUploadImage, "before");
+                await Service.UpdateBeforePicture(isShowUpUploadImage);
+                isShowUpUploadImage = null;
+                StateHasChanged();
+            }
+            showMessageSubmitForm = null;
+            StateHasChanged();
+        }
+        else
+        {
+            showMessageSubmitForm = "Please choose image";
+        }
+    }
+
+    public void ShowPicture(string id, string beforeOrAfter)
+    {
+        isShowPicture = true;
+        switch (beforeOrAfter)
+        {
+            case "after":
+                srcOpenImage = "/upload/images/after/" + id + ".jpg";
+                break;
+            case "before":
+                srcOpenImage = "/upload/images/before/" + id + ".jpg";
+                break;
+        }
+
+        // isShowUpActionTab = id;
+    }
+
+    public void ClosePicture()
+    {
+        isShowPicture = false;
+        isShowUpActionTab = null;
+    }
+
+    #region Get color of status
+
+    public string[] DisplayColorOfStatus(int indicatorStatus)
+    {
+        switch (indicatorStatus)
+        {
+
+            //case "Đăng ký mới":
+            case 1:
+                return new string[] { "bg-success", "#5cb85c" };
+            //case "Đã duyệt đề xuất":
+            case 2:
+                return new string[] { "bg-warning", "#f0ad4e" };
+            //case "Đang chờ thực hiện":
+            case 3:
+                return new string[] { "bg-info", "#5bc0de" };
+            //case "Đang thực hiện":
+            case 4:
+                return new string[] { "bg-primary", "#0275d8" };
+            //case "Chờ duyệt hành động":
+            case 5:
+                return new string[] { "bg-secondary", "#868e96" };
+            //case "Hoàn tất":
+            case 6:
+                return new string[] { "bg-dark", "#292b2c" };
+            //case "Không thực hiện":
+            case 7:
+                return new string[] { "bg-danger", "#d9534f" };
+            //case "Hành động không hiệu quả":
+            case 8:
+                return new string[] { "bg-danger", "#672599" };
+            default:
+                return null;
+        }
+    }
+    #endregion
+    #region Manage comment
+    public async Task SubmitComment(string id, DateTime submitDt)
+    {
+        await Service.AddComment(id, submitDt, cipfComment.Comment, currentUser);
+        cipfComment = new CipfComment();
+        await Refresh();
+    }
+    public async Task DeleteComment(int Id)
+    {
+        await Service.DeleteComment(Id);
+        await Refresh();
+    }
+
+    #endregion
 
 }

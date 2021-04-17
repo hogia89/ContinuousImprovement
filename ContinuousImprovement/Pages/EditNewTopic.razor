@@ -1,0 +1,140 @@
+﻿@page "/editnewtopic"
+@using ContinuousImprovement.Data
+@using ContinuousImprovement.Model
+@inject IModalService ModalService
+@inherits OwningComponentBase<SuggestionService>
+
+<div class="card-body">
+    <EditForm Model="cipf">
+        <div class="form-group row">
+            <div class="col-1">
+                <img title="@cipf.OwnerSuggestion" src="/img/avatar/other.jpg" onerror="this.onerror=null;this.src='/img/avatar/other.jpg'" style="border-radius:50%" width="40" height="40" />
+            </div>
+            <div class="col-10 text-left">
+                <div class="row">
+                    <span title="@cipf.OwnerSuggestion"><b>@cipf.OwnerSuggestion</b></span>
+                </div>
+                <div class="row">
+                    <span class="text-primary" style="font-size:8px">@cipf.OwnerCode _ @cipf.OwnerDept</span>
+                </div>
+            </div>
+        </div>
+        <div class="form-group row">
+            @*<label class="control-label">Bộ phận đề xuất</label>*@
+            <div class="input-group mb-2 col-4">
+                <div class="input-group-prepend">
+                    <div class="input-group-text"><i class="fas fa-industry"></i></div>
+                </div>
+                <select class="form-control" @bind="cipf.DeptRecSug" id="inlineFormInputGroup">
+                    <option value="@cipf.OwnerDept">@cipf.OwnerDept</option>
+                    @foreach (var item in listOfDepartments)
+                    {
+                        <option value="@item.Department">@item.Department</option>
+                    }
+                    <option>Khác</option>
+                </select>
+            </div>
+            @*<InputSelect class="form-control" @bind-Value="@cipf.DeptRecSug">
+                    <option value="@cipf.OwnerDept">@cipf.OwnerDept</option>
+                    @foreach (var item in listOfDepartments)
+                            {
+                        <option value="@item.Department">@item.Department</option>
+                            }
+                    /**/
+                </InputSelect>*@
+            @*</div>
+                <div class="form-group">*@
+            @*<label class="control-label">Lợi ích dự kiến</label>*@
+            <div class="input-group mb-2 col-4">
+                <div class="input-group-prepend">
+                    <div class="input-group-text"><i class="fas fa-money-check-alt"></i></div>
+                </div>
+                <select class="form-control" @bind="cipf.ExpectedBenefit" id="inlineFormInputGroup">
+                    <option value="">Chọn lợi ích dự kiến</option>
+                    <option value="Chất lượng">Chất lượng</option>
+                    <option value="Giảm chi phí">Giảm chi phí</option>
+                    <option value="An toàn">An toàn</option>
+                    <option value="5S">5S</option>
+                    <option value="Khác">Khác</option>
+                </select>
+            </div>
+            @*<InputSelect class="form-control" @bind-Value="@cipf.ExpectedBenefit">
+                    <option value="">Chọn ...</option>
+                    <option value="Chất lượng">Chất lượng</option>
+                    <option value="Giảm chi phí">Giảm chi phí</option>
+                    <option value="An toàn">An toàn</option>
+                    <option value="5S">5S</option>
+                    <option value="Khác">Khác</option>
+                </InputSelect>*@
+            @*</div>
+                <div class="form-group">*@
+            @*<label class="control-label">Người duyệt hành động</label>
+                <InputText class="form-control" @bind-Value="@cipf.Email" />*@
+            <div class="input-group mb-2 col-4">
+                <div class="input-group-prepend">
+                    <div class="input-group-text"><i class="fas fa-at"></i></div>
+                </div>
+                <input type="email" class="form-control" @bind-value="cipf.Email" id="inlineFormInputGroup" placeholder="Nhập email người duyệt" />
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="control-label">Tình trạng hiện tại</label>
+            <InputTextArea class="form-control" @bind-Value="@cipf.CurrentStatus" />
+        </div>
+        <div class="form-group">
+            <label class="control-label">Hành động đề nghị</label>
+            <InputTextArea class="form-control" @bind-Value="@cipf.SuggestionAction" />
+        </div>
+
+
+    </EditForm>
+    <span class="text-danger small">@warningText</span>
+</div>
+<div class="card-footer">
+    <div class="row">
+        <div class="col-8 p-2">
+            <button class="btn btn-block btn-success"
+                    @onclick="SaveSuggestion" data-dismiss="modal">
+                Cập nhật đề xuất
+            </button>
+        </div>
+        <div class="col-4 p-2">
+            <button class="btn btn-block btn-danger"
+                    @onclick="DeleteNewTopic" data-dismiss="modal">
+                Xóa đề xuất
+            </button>
+        </div>
+    </div>
+    
+</div>
+
+@code {
+    string warningText = "";
+    [Parameter] public int id { get; set; }
+    [CascadingParameter] BlazoredModalInstance BlazoredModal { get; set; }
+    List<ProductionDepartment> listOfDepartments = new List<ProductionDepartment>();
+    List<CipfSuggestion> cipfSuggestions = new List<CipfSuggestion>();
+    CipfSuggestion cipf = new CipfSuggestion();
+
+    protected override async Task OnInitializedAsync()
+    {
+        cipfSuggestions = await Service.GetSuggestions(id);
+        if (cipfSuggestions != null)
+        {
+            cipf = cipfSuggestions.FirstOrDefault();
+        }
+        listOfDepartments = await Service.GetListOfDepartments();
+    }
+
+    public async Task SaveSuggestion()
+    {
+        await Service.UpdateData(cipf);
+        BlazoredModal.Close();
+    }
+
+     public async Task DeleteNewTopic()
+    {
+        await Service.DeleteNewTopic(id);
+        BlazoredModal.Close();
+    }
+}

@@ -1,7 +1,10 @@
 @import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
 
+@import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    /*font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;*/
+    font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
 a, .btn-link {
@@ -31,7 +34,7 @@ app {
 }
 
     .main .top-row {
-        background-color: #f7f7f7;
+        background-color: #21324a;
         border-bottom: 1px solid #d6d5d5;
         justify-content: flex-end;
     }
@@ -41,17 +44,21 @@ app {
             margin-left: 1.5rem;
         }
 
-.main .top-row a:first-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+        .main .top-row a:first-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    /*background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);*/
+    /*background-image: linear-gradient(180deg, rgb(5, 92, 103) 0%, #0bbd9c 70%);*/
+    /*background-image: linear-gradient(45deg, rgb(233, 225, 235) 0%, #192536 70%);*/
+    background-color: #f0f2f5;
 }
 
     .sidebar .top-row {
-        background-color: rgba(0,0,0,0.4);
+        background-color: #21324a;
+        height: 3.47rem;
     }
 
     .sidebar .navbar-brand {
@@ -88,16 +95,20 @@ app {
         }
 
             .sidebar .nav-item a.active {
-                background-color: rgba(255,255,255,0.25);
+                background-color: rgba(202, 207, 206,0.25);
                 color: white;
             }
 
             .sidebar .nav-item a:hover {
-                background-color: rgba(255,255,255,0.1);
+                background-color: rgba(202, 207, 206,0.25);
                 color: white;
             }
+
 .sidebarleft {
-    background-image: linear-gradient(180deg, rgb(233, 225, 235) 0%, #f8f0fa 70%);
+    /*background-image: linear-gradient(180deg, rgb(5, 92, 103) 0%, #0bbd9c 70%);*/
+    /*background-image: linear-gradient(45deg, rgb(233, 225, 235) 0%, #192536 90%);*/
+    /*background-image: linear-gradient(180deg, rgb(5, 92, 103) 0%, #0bbd9c 70%);*/
+    background-color: #f0f2f5;
 }
 
     .sidebarleft .top-row {
@@ -146,6 +157,7 @@ app {
                 background-color: rgba(255,255,255,0.1);
                 color: white;
             }
+
 .content {
     /*padding-top: 1.1rem;*/
 }
@@ -178,12 +190,12 @@ app {
     z-index: 1000;
 }
 
-#blazor-error-ui .dismiss {
-    cursor: pointer;
-    position: absolute;
-    right: 0.75rem;
-    top: 0.5rem;
-}
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
 
 @media (max-width: 767.98px) {
     .main .top-row:not(.auth) {
@@ -210,6 +222,7 @@ app {
         position: sticky;
         top: 0;
     }
+
     .sidebarleft {
         width: 250px;
         height: 100vh;
@@ -223,7 +236,7 @@ app {
     }
 
     .main > div {
-        padding-left: 2rem !important;
+        padding-left: 1rem !important;
         padding-right: 1rem !important;
     }
 
@@ -235,8 +248,228 @@ app {
         /* Never collapse the sidebar for wide screens */
         display: block;
     }
+
     .sidebarleft .collapse {
         /* Never collapse the sidebar for wide screens */
         display: block;
     }
+
+    #myImg {
+        border-radius: 5px;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+        #myImg:hover {
+            opacity: 0.7;
+        }
+
+    /* The Modal (background) */
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1; /* Sit on top */
+        padding-top: 100px; /* Location of the box */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgb(0,0,0); /* Fallback color */
+        background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
+    }
+
+    /* Modal Content (image) */
+    .modal-content {
+        margin: auto;
+        display: block;
+        width: 80%;
+        max-width: 700px;
+    }
+
+    /* Caption of Modal Image */
+    #caption {
+        margin: auto;
+        display: block;
+        width: 80%;
+        max-width: 700px;
+        text-align: center;
+        color: #ccc;
+        padding: 10px 0;
+        height: 150px;
+    }
+
+    /* Add Animation */
+    .modal-content, #caption {
+        -webkit-animation-name: zoom;
+        -webkit-animation-duration: 0.6s;
+        animation-name: zoom;
+        animation-duration: 0.6s;
+    }
+
+    @-webkit-keyframes zoom {
+        from {
+            -webkit-transform: scale(0)
+        }
+
+        to {
+            -webkit-transform: scale(1)
+        }
+    }
+
+    @keyframes zoom {
+        from {
+            transform: scale(0)
+        }
+
+        to {
+            transform: scale(1)
+        }
+    }
+
+    /* The Close Button */
+    .close {
+        position: absolute;
+        top: 15px;
+        right: 35px;
+        color: #f1f1f1;
+        font-size: 40px;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+
+        .close:hover,
+        .close:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+    /* 100% Image Width on Smaller Screens */
+    @media only screen and (max-width: 700px) {
+        .modal-content {
+            width: 100%;
+        }
+    }
+    /* Container holding the image and the text */
+    .container {
+        position: relative;
+        text-align: center;
+        color: white;
+    }
+
+    /* Bottom left text */
+    .bottom-left {
+        position: absolute;
+        bottom: 8px;
+        left: 16px;
+    }
+
+    /* Top left text */
+    .top-left {
+        position: absolute;
+        top: 8px;
+        left: 16px;
+    }
+
+    .top-left-center {
+        position: absolute;
+        left: 16px;
+    }
+    /* Top right text */
+    .top-right {
+        position: absolute;
+        top: 8px;
+        right: 16px;
+    }
 }
+
+    .progressbar {
+        counter-reset: step;
+        padding: 0;
+        /* for demo */
+        margin: 100px auto 0;
+        max-width: 800px;
+    }
+
+        .progressbar li {
+            float: left;
+            list-style: none;
+            position: relative;
+            text-align: center;
+            width: calc(100% / 6);
+        }
+
+            .progressbar li:before {
+                background: #fff;
+                border: 1px solid #bebebe;
+                border-radius: 50%;
+                color: #bebebe;
+                content: counter(step);
+                counter-increment: step;
+                display: block;
+                font-weight:100;
+                height: 20px;
+                line-height: 18px;
+                margin: 0 auto 2px;
+                text-align: center;
+                width: 20px;
+            }
+
+            .progressbar li:after {
+                background: #979797;
+                content: '';
+                height: 1.5px;
+                left: -50%;
+                position: absolute;
+                top: 10px;
+                width: 100%;
+                z-index: -1;
+            }
+
+            .progressbar li:first-child:after {
+                content: none;
+            }
+
+            .progressbar li.active:after,
+            .progressbar li.complete:after {
+                background: #3aac5d;
+            }
+
+            .progressbar li.active:before,
+            .progressbar li.complete:before {
+                background: #3aac5d;
+                border-color: #3aac5d;
+                color: #fff;
+            }
+
+            .progressbar li.active {
+                color: #3aac5d;
+                font-weight: 700;
+            }
+
+
+/*Customize scrollbar*/
+/* width */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+    box-shadow: inset 0 0 5px grey;
+    border-radius: 10px;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    background: #c4cbd4;
+    border-radius: 10px;
+}
+
+    /* Handle on hover */
+    ::-webkit-scrollbar-thumb:hover {
+        background: #424d5c;
+    }
+
+

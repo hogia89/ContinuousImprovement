@@ -1,5 +1,14 @@
-﻿<div class="top-row pl-4 navbar navbar-dark">
+﻿@*<div class="top-row pl-4 navbar navbar-dark">
     <a class="navbar-brand" href="">ContinuousImprovement</a>
+    <button class="navbar-toggler" @onclick="ToggleNavMenu">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+</div>*@
+<div class="top-row pl-1 navbar navbar-dark">
+    <a class="navbar-brand" href="#" style="font-weight:600">
+        <img src="/img/icon/pageicon.png" onerror="this.onerror=null;this.src='/img/avatar/other.jpg'" style="border-radius:50%" width="35" height="35" />
+        Continuous Improvement
+    </a>
     <button class="navbar-toggler" @onclick="ToggleNavMenu">
         <span class="navbar-toggler-icon"></span>
     </button>
@@ -9,21 +18,30 @@
     <ul class="nav flex-column">
         <li class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="oi oi-home" aria-hidden="true"></span> Home
-            </NavLink>
-        </li>
-        <li class="nav-item px-3">
-            <NavLink class="nav-link" href="submitsuggestion">
-                <span class="oi oi-plus" aria-hidden="true"></span> Submit New Suggestion
+                <span class="text-black-50 text-capitalize" style="font-size:large"><i class="fas fa-home text-success" style="font-size:x-large"></i> Home</span>
             </NavLink>
         </li>
         <li class="nav-item px-3">
             <NavLink class="nav-link" href="mytask">
-                <span class="oi oi-list-rich" aria-hidden="true"></span> My Task
+                <span class="text-black-50 text-capitalize" style="font-size:large"><i class="fas fa-tasks text-primary" style="font-size:x-large"></i> My Task</span>
+            </NavLink>
+        </li>
+        <li class="nav-item px-3">
+            <NavLink class="nav-link" href="myapproval">
+                <span class="text-black-50 text-capitalize" style="font-size:large"><i class="fas fa-vote-yea text-warning" style="font-size:x-large"></i> My Approval</span>
+            </NavLink>
+        </li>
+        <li class="nav-item px-3">
+            <NavLink class="nav-link" href="submitsuggestion">
+                <span class="text-black-50 text-capitalize" style="font-size:large"><i class="far fa-plus-square text-danger" style="font-size:x-large"></i> Submit Suggestion</span>
             </NavLink>
         </li>
     </ul>
+    <div class="row p-1 bottom-left">
+        <span class="col-12 m-2" style="text-align:right; font-size:10px">Copyright © King Rain @DateTime.Now.Year</span>
+    </div>
 </div>
+
 
 @code {
     private bool collapseNavMenu = true;

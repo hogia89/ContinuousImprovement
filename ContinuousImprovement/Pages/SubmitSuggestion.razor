@@ -1,127 +1,184 @@
 ﻿@page "/SubmitSuggestion"
 @using ContinuousImprovement.Data
+@using ContinuousImprovement.Model
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@using BlazorInputFile
+@inject IFileUpload fileUpload
 @inherits OwningComponentBase<SuggestionService>
 
-@if (isCheck)
+@if (isUploadPicture)
 {
-    <div class="card">
-        <div class="card-header">
-            <div class="row">
-                <h3 class="card-title col-10">Submit Suggestion</h3>
-                <button class="btn btn-primary col-2" @onclick="reset">
-                    Hủy
-                </button>
+    <div id="myModal" class="modal-backdrop">
+        <span class="close" @onclick="CloseUploadPicture">&times;</span>
+        <div class="modal-content" style="margin-top:20vh">
+            <div class="modal-header">
+                <label class="control-label">Bạn có muốn đăng hình ảnh liên quan?</label>
+            </div>
+            <div class="modal-body">
+                <InputFile OnChange="HandleFileSelected" />
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" @onclick="CloseUploadPicture">Bỏ Qua</button>
             </div>
 
         </div>
-        <div class="card-body">
-            <EditForm Model="suggestions">
-                <div class="form-group row" style="background-color:aquamarine">
-                    <div class="col-3">
-                        @suggestions.ownerCode
-                    </div>
-                    <div class="col-3">
-                        <div class="row">
-                            @suggestions.ownerSuggestion
-                        </div>
-                        <div class="row">
-                            @suggestions.ownerDept
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="row">
-                            @suggestions.email
-                        </div>
-                        <div class="row">
-                            @DateTime.Now
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="control-label">Bộ phận đề xuất</label>
-                    <InputSelect class="form-control" @bind-Value="@suggestions.deptRecSug">
-                        <option value="@suggestions.ownerDept">@suggestions.ownerDept</option>
-                        @foreach (var item in listOfDepartments)
-                            {
-                            <option value="@item.Department">@item.Department</option>
-                            }
-                    </InputSelect>
-                </div>
-                <div class="form-group">
-                    <label class="control-label">Lợi ích dự kiến</label>
-                    <InputSelect class="form-control" @bind-Value="@suggestions.expectedBenefit">
-                        <option value="">Chọn ...</option>
-                        <option value="Chất lượng">Chất lượng</option>
-                        <option value="Giảm chi phí">Giảm chi phí</option>
-                        <option value="An toàn">An toàn</option>
-                        <option value="5S">5S</option>
-                        <option value="Khác">Khác</option>
-                    </InputSelect>
-                </div>
-                <div class="form-group">
-                    <label class="control-label">Tình trạng hiện tại</label>
-                    <InputTextArea class="form-control" @bind-Value="@suggestions.currentStatus" />
-                </div>
-                <div class="form-group">
-                    <label class="control-label">Hành động đề nghị</label>
-                    <InputTextArea class="form-control" @bind-Value="@suggestions.suggestionAction" />
-                </div>
-            </EditForm>
-            <span class="text-danger small">@warningText</span>
-        </div>
-        <div class="card-footer">
-            <button class="btn btn-block btn-success"
-                    @onclick="SaveSuggestion" data-dismiss="modal">
-                Đăng ký đề xuất
-            </button>
-        </div>
+        <div id="caption"></div>
     </div>
 }
 else
 {
-    @if (isCheckFailed)
+    @if (isCheck)
     {
-        <div class="card">
+        <div class="card mt-2">
             <div class="card-header">
                 <div class="row">
-                    <h3 class="card-title col-10">Bạn chưa đăng ký email, Vui lòng đăng ký bên dưới</h3>
-                    <button class="btn btn-primary col-2" @onclick="reset">
+                    <h3 class="card-title col-11">Đăng ký đề xuất</h3>
+                    <button class="btn btn-outline-danger col-1" @onclick="reset">
                         Hủy
                     </button>
                 </div>
+
             </div>
             <div class="card-body">
-                <EditForm Model="user">
-                    <div class="form-group">
-                        <label class="control-label">MSNV</label>
-                        <InputText class="form-control" @bind-Value="@user.employeeId" />
+                <EditForm Model="suggestions">
+                    <div class="form-group row">
+                        <div class="col-1">
+                            <img title="@suggestions.OwnerSuggestion" src="/img/avatar/other.jpg" onerror="this.onerror=null;this.src='/img/avatar/other.jpg'" style="border-radius:50%" width="40" height="40" />
+                        </div>
+                        <div class="col-11 text-left">
+                            <div class="row">
+                                <span title="@suggestions.OwnerSuggestion"><b>@suggestions.OwnerSuggestion</b></span>
+                            </div>
+                            <div class="row">
+                                <span class="text-primary" style="font-size:8px">@suggestions.OwnerCode _ @suggestions.OwnerDept</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label class="control-label">Họ và Tên</label>
-                        <InputText class="form-control" @bind-Value="@user.fullName" />
+                        @*<label class="control-label">Bộ phận đề xuất</label>*@
+                        <div class="input-group mb-2">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text"><i class="fas fa-industry"></i></div>
+                            </div>
+                            <select class="form-control" @bind="suggestions.DeptRecSug" id="inlineFormInputGroup">
+                                <option value="@suggestions.OwnerDept">@suggestions.OwnerDept</option>
+                                @foreach (var item in listOfDepartments)
+                                {
+                                    <option value="@item.Department">@item.Department</option>
+                                }
+                                <option>Khác</option>
+                            </select>
+                        </div>
+                        @*<InputSelect class="form-control" @bind-Value="@suggestions.DeptRecSug">
+                                <option value="@suggestions.OwnerDept">@suggestions.OwnerDept</option>
+                                @foreach (var item in listOfDepartments)
+                                        {
+                                    <option value="@item.Department">@item.Department</option>
+                                        }
+                                /**/
+                            </InputSelect>*@
                     </div>
                     <div class="form-group">
-                        <label class="control-label">Tài khoản Gmail</label>
-                        <InputText class="form-control col-6" @bind-Value="@user.Id" />
-                        <label class="form-control col-3">@@gmail.com</label>
+                        @*<label class="control-label">Lợi ích dự kiến</label>*@
+                        <div class="input-group mb-2">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text"><i class="fas fa-money-check-alt"></i></div>
+                            </div>
+                            <select class="form-control" @bind="suggestions.ExpectedBenefit" id="inlineFormInputGroup">
+                                <option value="">Chọn lợi ích dự kiến</option>
+                                <option value="Chất lượng">Chất lượng</option>
+                                <option value="Giảm chi phí">Giảm chi phí</option>
+                                <option value="An toàn">An toàn</option>
+                                <option value="5S">5S</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        @*<InputSelect class="form-control" @bind-Value="@suggestions.ExpectedBenefit">
+                                <option value="">Chọn ...</option>
+                                <option value="Chất lượng">Chất lượng</option>
+                                <option value="Giảm chi phí">Giảm chi phí</option>
+                                <option value="An toàn">An toàn</option>
+                                <option value="5S">5S</option>
+                                <option value="Khác">Khác</option>
+                            </InputSelect>*@
                     </div>
                     <div class="form-group">
-                        <label class="control-label">Bộ phận</label>
-                        <InputText class="form-control" @bind-Value="@user.department" />
+                        @*<label class="control-label">Người duyệt hành động</label>
+                            <InputText class="form-control" @bind-Value="@suggestions.Email" />*@
+                        <div class="input-group mb-2">
+                            <div class="input-group-prepend">
+                                <div class="input-group-text"><i class="fas fa-at"></i></div>
+                            </div>
+                            <input type="email" class="form-control" @bind-value="suggestions.Email" id="inlineFormInputGroup" placeholder="Nhập email người duyệt" />
+                        </div>
                     </div>
+                    <div class="form-group">
+                        <label class="control-label">Tình trạng hiện tại</label>
+                        <InputTextArea class="form-control" @bind-Value="@suggestions.CurrentStatus" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Hành động đề nghị</label>
+                        <InputTextArea class="form-control" @bind-Value="@suggestions.SuggestionAction" />
+                    </div>
+
+
                 </EditForm>
+                <span class="text-danger small">@warningText</span>
             </div>
-            <div class="card-footer row">
-                
+            <div class="card-footer">
                 <button class="btn btn-block btn-success"
-                        @onclick="AddEmployee" data-dismiss="modal">
-                    Tiếp theo
+                        @onclick="SaveSuggestion" data-dismiss="modal">
+                    Đăng ký đề xuất
                 </button>
             </div>
         </div>
     }
     else
     {
+        @*@if (isCheckFailed)
+            {
+                <div class="card">
+                    <div class="card-header">
+                        <div class="row">
+                            <h3 class="card-title col-10">Bạn chưa đăng ký email, Vui lòng đăng ký bên dưới</h3>
+                            <button class="btn btn-primary col-2" @onclick="reset">
+                                Hủy
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="user">
+                            <div class="form-group">
+                                <label class="control-label">MSNV</label>
+                                <InputText class="form-control" @bind-Value="@user.EmployeeId" />
+                            </div>
+                            <div class="form-group">
+                                <label class="control-label">Họ và Tên</label>
+                                <InputText class="form-control" @bind-Value="@user.FullName" />
+                            </div>
+                            <div class="form-group">
+                                <label class="control-label">Tài khoản Gmail</label>
+                                <InputText class="form-control col-6" @bind-Value="@user.Email" />
+                                <label class="form-control col-3">@@gmail.com</label>
+                            </div>
+                            <div class="form-group">
+                                <label class="control-label">Bộ phận</label>
+                                <InputText class="form-control" @bind-Value="@user.Department" />
+                            </div>
+                        </EditForm>
+                    </div>
+                    <div class="card-footer row">
+
+                        <button class="btn btn-block btn-success"
+                                @onclick="AddEmployee" data-dismiss="modal">
+                            Tiếp theo
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {*@
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Xác nhận MSNV</h3>
@@ -142,128 +199,191 @@ else
                 </button>
             </div>
         </div>
+        //}
     }
+
 }
 @code {
-    Suggestion suggestions = new Suggestion();
-    UserProfiles user = new UserProfiles();
-    List<UserProfiles> userProfiles = new List<UserProfiles>();
-    List<ListOfDepartment> listOfDepartments = new List<ListOfDepartment>();
+    CipfSuggestion suggestions = new CipfSuggestion();
+    CipfUserProfiles user = new CipfUserProfiles();
+    List<CipfUserProfiles> userProfiles = new List<CipfUserProfiles>();
+    List<ProductionDepartment> listOfDepartments = new List<ProductionDepartment>();
     bool isCheck = false;
-    bool isCheckFailed = false;
+    //bool isCheckFailed = false;
     string[] employeeInfo;
     string warningText;
     string employeeId;
+    //string fileName = null;
+    bool isUploadPicture = false;
+    IFileListEntry file = null;
+    string currentUser = "";
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            currentUser = user.Identity.Name.ToLower();
+        }
         await GetListOfDepartment();
     }
     public async Task SaveSuggestion()
     {
-        if (string.IsNullOrWhiteSpace(suggestions.currentStatus)
-            || string.IsNullOrWhiteSpace(suggestions.suggestionAction)
-            || string.IsNullOrEmpty(suggestions.expectedBenefit))
+        if (string.IsNullOrWhiteSpace(suggestions.CurrentStatus)
+            || string.IsNullOrWhiteSpace(suggestions.SuggestionAction)
+            || string.IsNullOrEmpty(suggestions.ExpectedBenefit))
         {
             warningText = "Vui lòng nhập đầy đủ các nội dung bên trên";
         }
+        else if (!suggestions.Email.Contains("@vn.pepperl-fuchs.com"))
+        {
+            warningText = "Vui lòng nhập đầy đủ đúng email người duyệt";
+        }
         else
         {
+            suggestions.InputBy = currentUser;
+            var info = suggestions;
             await Service.AddNewSuggestion(suggestions);
-            reset();
+            isUploadPicture = true;
+            Service.sendEmailNewSuggest(info.Email,currentUser.ToLower().Replace("ap\\","")+"@vn.pepperl-fuchs.com",info);
+            info = null;
         }
-
     }
     public void reset()
     {
         isCheck = false;
-        isCheckFailed = false;
-        user = new UserProfiles();
-        suggestions = new Suggestion();
-        userProfiles = new List<UserProfiles>();
+        //isCheckFailed = false;
+        user = new CipfUserProfiles();
+        suggestions = new CipfSuggestion();
+        userProfiles = new List<CipfUserProfiles>();
         employeeId = null;
-        employeeInfo= new string[3];
+        employeeInfo = new string[3];
         warningText = "";
     }
-    public async Task AddEmployee()
-    {
-        if (user.Id is null)
-        {
-            isCheck = true;
-            warningText = null;
-            suggestions.ownerCode = user.employeeId;
-            suggestions.email = null;
-            suggestions.ownerDept = user.department;
-            suggestions.deptRecSug = user.department;
-            suggestions.ownerSuggestion = user.fullName;
-        }
-        else
-        {
-            user.Id = user.Id + "@gmail.com";
-            await Service.AddNewEmployee(user);
-            await CheckEmployee();
-        }
-        if (!listOfDepartments.Any())
-        {
-            await GetListOfDepartment();
-        }
-    }
+    //public async Task AddEmployee()
+    //{
+    //    if (user.Email is null)
+    //    {
+    //        isCheck = true;
+    //        warningText = null;
+    //        suggestions.OwnerCode = user.EmployeeId;
+    //        suggestions.Email = null;
+    //        suggestions.OwnerDept = user.Department;
+    //        suggestions.DeptRecSug = user.Department;
+    //        suggestions.OwnerSuggestion = user.FullName;
+    //        suggestions.CostCenterRecSug = user.CostCenter;
+    //    }
+    //    else
+    //    {
+    //        user.Email = user.Email + "@gmail.com";
+    //        await Service.AddNewEmployee(user);
+    //        await CheckEmployee();
+    //    }
+    //    if (!listOfDepartments.Any())
+    //    {
+    //        await GetListOfDepartment();
+    //    }
+    //}
     public async Task GetListOfDepartment()
     {
         listOfDepartments = await Service.GetListOfDepartments();
     }
-    public async Task CheckEmployee()
+    public void CheckEmployee()
     {
         if (employeeId != null)
         {
-            userProfiles = await Service.GetUserProfile(employeeId);
-            if (userProfiles.Any())
+            employeeInfo = Service.GetEmployeeInfo(employeeId);
+            if (employeeInfo[1] == "")
             {
-                isCheck = true;
-                warningText = null;
-                if (!listOfDepartments.Any())
-                {
-                    await GetListOfDepartment();
-                }
-                //suggestions.ownerCode = userProfiles.Select(x => x.employeeId).FirstOrDefault();
-                foreach (var item in userProfiles)
-                {
-                    suggestions.ownerCode = item.employeeId;
-                    suggestions.email = item.Id;
-                    suggestions.ownerDept = item.department;
-                    suggestions.deptRecSug = item.department;
-                    suggestions.ownerSuggestion = item.fullName;
-                }
+                isCheck = false;
+                warningText = "Vui lòng kiểm tra lại MSNV";
             }
             else
             {
-                employeeInfo = Service.GetEmployeeInfo(employeeId);
-                //employeeInfo = Service.CheckName(user.employeeId);
-                if (employeeInfo[1] == "")
-                {
-                    warningText = "Vui lòng kiểm tra lại MSNV";
-                }
-                else
-                {
-                    user.employeeId = employeeInfo[0];
-                    user.fullName = employeeInfo[1];
-                    user.department = employeeInfo[2];
-                    isCheckFailed = true;
-                }
+                isCheck = true;
+                warningText = "";
+                suggestions.OwnerCode = employeeInfo[0];
+                //suggestions.Email = item.Email;
+                suggestions.OwnerSuggestion = employeeInfo[1];
+                suggestions.OwnerDept = employeeInfo[2];
+                suggestions.DeptRecSug = employeeInfo[2];
+                suggestions.CostCenterRecSug = employeeInfo[3];
+                DateTime dtSubmit = DateTime.Now;
+                suggestions.SuggestionId = (dtSubmit.ToLongTimeString() + dtSubmit.ToShortDateString() + suggestions.OwnerCode).Replace(" ", "").Replace("-", "").Replace("/", "").Replace(".", "").Replace(":", "");
+                //    userProfiles = await Service.GetUserProfile(employeeId);
+                //    if (userProfiles.Any())
+                //    {
+                //        isCheck = true;
+                //        warningText = null;
+                //        if (!listOfDepartments.Any())
+                //        {
+                //            await GetListOfDepartment();
+                //        }
+                //        //suggestions.ownerCode = userProfiles.Select(x => x.employeeId).FirstOrDefault();
+                //        foreach (var item in userProfiles)
+                //        {
+                //            suggestions.OwnerCode = item.EmployeeId;
+                //            suggestions.Email = item.Email;
+                //            suggestions.OwnerDept = item.Department;
+                //            suggestions.DeptRecSug = item.Department;
+                //            suggestions.CostCenterRecSug = item.CostCenter;
+                //            suggestions.OwnerSuggestion = item.FullName;
+                //        }
+                //    }
+                //    else
+                //    {
+                //        employeeInfo = Service.GetEmployeeInfo(employeeId);
+                //        if (employeeInfo[1] == "")
+                //        {
+                //            warningText = "Vui lòng kiểm tra lại MSNV";
+                //        }
+                //        else
+                //        {
+                //            user.EmployeeId = employeeInfo[0];
+                //            user.FullName = employeeInfo[1];
+                //            user.Department = employeeInfo[2];
+                //            user.CostCenter = employeeInfo[3];
+                //            isCheckFailed = true;
+                //        }
 
+                //    }
             }
+
         }
         else
         {
+            isCheck = false;
             warningText = "Vui lòng nhập MSNV";
         }
 
-        //isCheck = true;
+
 
     }
-    public async Task searchEmployee(ChangeEventArgs e)
+    public void searchEmployee(ChangeEventArgs e)
     {
         var id = int.Parse(e.Value.ToString());
         employeeId = id.ToString();
-        await CheckEmployee();
+        CheckEmployee();
+    }
+
+    //Upload image
+    async Task HandleFileSelected(IFileListEntry[] files)
+    {
+        file = files.FirstOrDefault();
+        if (file != null)
+        {
+            await fileUpload.Upload(file, suggestions.SuggestionId, "before");
+            await Service.UpdateBeforePicture(suggestions.SuggestionId);
+            CloseUploadPicture();
+        }
+        StateHasChanged();
+    }
+
+    //Dismiss upload picture
+    public void CloseUploadPicture()
+    {
+        isUploadPicture = false;
+        reset();
+        //reset();
     }
 }

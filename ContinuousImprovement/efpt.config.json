@@ -1,0 +1,51 @@
+﻿{
+   "ContextClassName": "MOMContext",
+   "ContextNamespace": null,
+   "DefaultDacpacSchema": null,
+   "DoNotCombineNamespace": false,
+   "IdReplace": false,
+   "IncludeConnectionString": false,
+   "ModelNamespace": null,
+   "OutputContextPath": null,
+   "OutputPath": "Model",
+   "ProjectRootNamespace": "ContinuousImprovement",
+   "SelectedHandlebarsLanguage": 0,
+   "SelectedToBeGenerated": 0,
+   "Tables": [
+      {
+         "HasPrimaryKey": true,
+         "Name": "[dbo].[CIPF_Comment]"
+      },
+      {
+         "HasPrimaryKey": true,
+         "Name": "[dbo].[CIPF_ListOfLike]"
+      },
+      {
+         "HasPrimaryKey": true,
+         "Name": "[dbo].[CIPF_Suggestion]"
+      },
+      {
+         "HasPrimaryKey": true,
+         "Name": "[dbo].[CIPF_UserProfiles]"
+      },
+      {
+         "HasPrimaryKey": true,
+         "Name": "[dbo].[EmployeeInfoCRS530]"
+      },
+      {
+         "HasPrimaryKey": true,
+         "Name": "[dbo].[HRWeeklyReport]"
+      },
+      {
+         "HasPrimaryKey": true,
+         "Name": "[dbo].[ProductionDepartment]"
+      }
+   ],
+   "UseDatabaseNames": false,
+   "UseDbContextSplitting": false,
+   "UseFluentApiOnly": true,
+   "UseHandleBars": false,
+   "UseInflector": false,
+   "UseLegacyPluralizer": false,
+   "UseSpatial": false
+}

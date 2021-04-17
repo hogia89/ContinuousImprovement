@@ -3,46 +3,66 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
-using Google.Cloud.Firestore;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Oracle.ManagedDataAccess.Client;
+using ContinuousImprovement.Model;
+using Microsoft.EntityFrameworkCore;
+using System.Net.Mail;
 
 namespace ContinuousImprovement.Data
 {
     public class SuggestionService
     {
         private readonly IConfiguration _configuration;
-        //private readonly IHostingEnvironment _hostingEnviroment;
-        private readonly IWebHostEnvironment _webHostEnvironment;
-
-        private FirestoreDb db;
-        private string projectId = "loopkup-476c7";
-        //private string filepath ="\\\\pfvn-netapp1\\files\\20-Manufacturing\\11-TPU-EMS\\_Public\\Vu\\loopkup-476c7-6bdf61c5ce1f.json";
-        private string filepath = "";//"~/fonts/loopkup-476c7-6bdf61c5ce1f.json";//"C:\\inetpub\\wwwroot\\hvho\\MOnitoring\\loopkup-476c7-6bdf61c5ce1f.json";//"C:\\Users\\hvho\\Downloads\\loopkup-476c7-6bdf61c5ce1f.json";// "\\\\pfvn-netapp1\\files\\20-Manufacturing\\11-TPU-EMS\\_Public\\Vu\\loopkup-476c7-6bdf61c5ce1f.json";
-        public SuggestionService(IConfiguration configuration,IWebHostEnvironment webHostEnvironment)
+        private readonly MOMContext _context;
+        public SuggestionService(IConfiguration configuration, MOMContext context)
         {
-            
-           
-            _configuration = configuration;
-            _webHostEnvironment = webHostEnvironment;
-            string contentpath = _webHostEnvironment.ContentRootPath;
-            filepath = contentpath + "/loopkup-476c7-6bdf61c5ce1f.json";
-            Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", filepath);
-            db = FirestoreDb.Create(projectId);
-        }
 
+            _context = context;
+            _configuration = configuration;
+        }
+        public string[] GetEmployeeInfo_Crs530(string employeeId)
+        {
+            string id = null;
+            string fullName = null;
+            string department = null;
+            string costCenter = null;
+            string connectionString = _configuration["ConnectionStrings:ODBCConnectionString"];
+            using (OracleConnection connection = new OracleConnection(connectionString))
+            {
+                connection.Open();
+                string sqlString = "" +
+                 " SELECT PFODS.CEAEMP_143.EACANO AS id, PFODS.CEAEMP_143.EAEMNM AS FullName, PFODS.CEAEMP_143.EADEPT AS CostCenter" +
+                 " FROM PFODS.CEAEMP_143" +
+                 " WHERE PFODS.CEAEMP_143.EACANO = '" + employeeId + "'";
+                OracleCommand command = new OracleCommand(sqlString, connection);
+                using (OracleDataReader dataReader = command.ExecuteReader())
+                {
+                    while (dataReader.Read())
+                    {
+                        id = dataReader.GetValue(0).ToString();
+                        fullName = dataReader.GetString(1);
+                        costCenter = dataReader.GetValue(2).ToString();
+                        department = _context.ProductionDepartment.Where(x => x.CostCenter == costCenter).Select(x => x.Department).FirstOrDefault();
+                    }
+                    connection.Close();
+                }
+            }
+            string[] info = new string[4] { id, fullName, department, costCenter };
+            return info;
+        }
         public string[] GetEmployeeInfo(string employeeId)
         {
             string id = "";
             string fullname = "";
             string department = "";
+            string costCenter = "";
             string connectionString = _configuration["ConnectionStrings:DefaultConnection"];
             using (SqlConnection connection = new SqlConnection(connectionString))
             {
                 connection.Open();
                 string sqlString = "" +
-                    "Select EmployeeId,FullName,Department from SummarizeListOfOperatorLastestDate_CRS530 where EmployeeId='" + employeeId + "'";
+                    "Select EmployeeId,FullName,Department,CostCenter from SummarizeListOfOperatorLastestDate_HR where EmployeeId='" + employeeId + "'";
                 SqlCommand command = new SqlCommand(sqlString, connection);
                 using (SqlDataReader dataReader = command.ExecuteReader())
                 {
@@ -51,315 +71,694 @@ namespace ContinuousImprovement.Data
                         id = dataReader.GetValue(0).ToString();
                         fullname = dataReader.GetValue(1).ToString();
                         department = dataReader.GetValue(2).ToString();
+                        costCenter = dataReader.GetValue(3).ToString();
                     }
                     connection.Close();
                 }
-
             }
-            string[] info = new string[3] { id, fullname, department };
+            string[] info = new string[4] { id, fullname, department, costCenter };
             return info;
         }
 
-        public List<ListOfEmployee_CRS530> GetAllEmployeeInfo_Crs530()
+        public async Task<List<EmployeeInfoCrs530>> GetAllEmployeeInfo_Crs530()
         {
-            List<ListOfEmployee_CRS530> lists = new List<ListOfEmployee_CRS530>();
-            string connectionString = _configuration["ConnectionStrings:DefaultConnection"];
-            using (SqlConnection connection = new SqlConnection(connectionString))
-            {
-                connection.Open();
-                string sqlString = "" +
-                    "Select * from SummarizeListOfOperatorLastestDate_CRS530";
-                SqlCommand command = new SqlCommand(sqlString, connection);
-                using (SqlDataReader dataReader = command.ExecuteReader())
-                {
-                    while (dataReader.Read())
-                    {
-                        ListOfEmployee_CRS530 list = new ListOfEmployee_CRS530();
-                        //                        list.EmployeeId = dataReader.GetInt32(1);
-                        list.FullName = dataReader.GetValue(1).ToString();
-                        list.CostCenter = dataReader.GetValue(2).ToString();
-                        list.TPU = dataReader.GetValue(4).ToString();
-                        list.Department = dataReader.GetValue(5).ToString();
-                        list.Expr1 = dataReader.GetDateTime(6);
-                        list.MonthSupport = dataReader.GetString(7);
-
-                        lists.Add(list);
-                    }
-                    connection.Close();
-                }
-            }
-            return lists;
-        }
-        public string[] CheckName(string employeeId)
-        {
-            string FullName = "";
-            string CostCenter = "";
-            OracleCommand comm = default(OracleCommand);
-            OracleDataReader dr = default(OracleDataReader);
-            string strConnectionString_ODBC = _configuration.GetSection("ConnectionStrings").GetSection("ODBCConnectionString").Value;
-            OracleConnection cn = new OracleConnection(strConnectionString_ODBC);
-            string sqlGetMONO = "" +
-                 " SELECT PFODS.CEAEMP_143.EACANO AS id, PFODS.CEAEMP_143.EAEMNM AS FullName, PFODS.CEAEMP_143.EADEPT AS CostCenter" +
-                 " FROM PFODS.CEAEMP_143" +
-                 " WHERE PFODS.CEAEMP_143.EACANO = '" + employeeId + "'";
-            comm = new OracleCommand(sqlGetMONO, cn);
-            cn.Open();
-            dr = comm.ExecuteReader();
-            if (dr.Read() == true)
-            {
-                FullName = dr.GetValue(1).ToString();
-                CostCenter = dr.GetValue(2).ToString().Substring(2, 4);
-            }
-            cn.Close();
-            dr.Close();
-            cn.Dispose();
-            comm.Dispose();
-            cn.Dispose();
-            string[] infor = new string[2] { FullName, CostCenter };
-            return (infor);
+            DateTime td = DateTime.Today;
+            return await _context.EmployeeInfoCrs530.Where(x => x.Updatetime.Year == td.Year && x.Updatetime.Month == td.Month && x.Updatetime.Day == td.Day).ToListAsync();
         }
 
-        public async Task<List<Suggestion>> GetSuggestions(string currentUser, int year, int quater)
+        public async Task<List<HrweeklyReport>> GetHrweeklyReports(int filterYear, int filterQuater)
         {
-            List<Suggestion> suggestions = new List<Suggestion>();
+            DateTime dt = DateTime.Today;
             try
             {
-
-                Query query = db.Collection("Suggestion")
-                    .WhereGreaterThanOrEqualTo("submitDate", Timestamp.FromDateTime(new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc)))
-                    .WhereLessThan("submitDate", Timestamp.FromDateTime(new DateTime(year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
-                //sorting quaterly
-                switch (quater)
+                switch (filterQuater)
                 {
                     case 0:
+                        dt = _context.HrweeklyReport.Where(x => x.WorkingDate.Year == filterYear).Select(x => x.WorkingDate).Max();
                         break;
                     case 1:
-                        query = query.WhereGreaterThanOrEqualTo("submitDate", Timestamp.FromDateTime(new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc)))
-                            .WhereLessThan("submitDate", Timestamp.FromDateTime(new DateTime(year, 4, 1, 0, 0, 0, DateTimeKind.Utc)));
+                        dt = _context.HrweeklyReport.Where(x => x.WorkingDate.Year == filterYear && x.WorkingDate.Month <= 3).Select(x => x.WorkingDate).Max();
                         break;
                     case 2:
-                        query = query.WhereGreaterThanOrEqualTo("submitDate", Timestamp.FromDateTime(new DateTime(year, 4, 1, 0, 0, 0, DateTimeKind.Utc)))
-                             .WhereLessThan("submitDate", Timestamp.FromDateTime(new DateTime(year, 7, 1, 0, 0, 0, DateTimeKind.Utc)));
+                        dt = _context.HrweeklyReport.Where(x => x.WorkingDate.Year == filterYear && x.WorkingDate.Month <= 6).Select(x => x.WorkingDate).Max();
                         break;
                     case 3:
-                        query = query.WhereGreaterThanOrEqualTo("submitDate", Timestamp.FromDateTime(new DateTime(year, 7, 1, 0, 0, 0, DateTimeKind.Utc)))
-                              .WhereLessThan("submitDate", Timestamp.FromDateTime(new DateTime(year, 10, 1, 0, 0, 0, DateTimeKind.Utc)));
+                        dt = _context.HrweeklyReport.Where(x => x.WorkingDate.Year == filterYear && x.WorkingDate.Month <= 9).Select(x => x.WorkingDate).Max();
                         break;
                     case 4:
-                        query = query.WhereGreaterThanOrEqualTo("submitDate", Timestamp.FromDateTime(new DateTime(year, 10, 1, 0, 0, 0, DateTimeKind.Utc)))
-                               .WhereLessThan("submitDate", Timestamp.FromDateTime(new DateTime(year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
+                        dt = _context.HrweeklyReport.Where(x => x.WorkingDate.Year == filterYear).Select(x => x.WorkingDate).Max();
                         break;
                     default:
+                        dt = _context.HrweeklyReport.Where(x => x.WorkingDate.Year == filterYear).Select(x => x.WorkingDate).Max();
                         break;
                 }
-                //// sorting department
-                //if (dept != null || dept !="All")
-                //{
-                //    query = query.WhereEqualTo("deptRecSug", dept);
-                //}
-                ////sorting status
-                //if (status != null)
-                //{
-                //    query = query.WhereEqualTo("status", status);
-                //}
-                QuerySnapshot suggestionSnapshots = await query.GetSnapshotAsync();
-
-                foreach (DocumentSnapshot documentSnapshot in suggestionSnapshots.Documents)
-                {
-                    DocumentReference documentReference = db.Collection("Suggestion").Document(documentSnapshot.Id);
-                    Query query1 = db.Collection("Like").WhereEqualTo(documentSnapshot.Id.ToString(), true);
-                    QuerySnapshot documentSnapshots = await query1.GetSnapshotAsync();
-                    int countLike = 0;
-                    bool like = false;
-                    foreach (DocumentSnapshot document in documentSnapshots.Documents)
-                    {
-                        if (document.Id == currentUser)
-                        {
-                            like = true;
-                        }
-                        countLike++;
-                    }
-                    DocumentSnapshot snapshot = await documentReference.GetSnapshotAsync();
-                    if (snapshot.Exists)
-                    {
-                        Suggestion suggestion = snapshot.ConvertTo<Suggestion>();
-                        suggestion.id = documentSnapshot.Id;
-                        suggestion.CountLike = countLike;
-                        suggestion.like = like;
-                        suggestions.Add(suggestion);
-                    }
-                    else
-                    {
-
-                    }
-                }
 
             }
             catch
             {
-                throw;
+
             }
-           
-            return suggestions;
+            //if (filterQuater == 0)
+            //{
+            //    dt = _context.HrweeklyReport.Where(x => x.WorkingDate.Year == filterYear).Select(x => x.WorkingDate).Max();
+            //}
+            //DateTime dt = new DateTime(2020, 4, 12);
+            return await _context.HrweeklyReport.Where(x => x.WorkingDate.Year == dt.Year && x.WorkingDate.Month == dt.Month && x.WorkingDate.Day == dt.Day).ToListAsync();
+        }
+        //public string[] CheckName(string employeeId)
+        //{
+        //    string FullName = "";
+        //    string CostCenter = "";
+        //    OracleCommand comm = default(OracleCommand);
+        //    OracleDataReader dr = default(OracleDataReader);
+        //    string strConnectionString_ODBC = _configuration.GetSection("ConnectionStrings").GetSection("ODBCConnectionString").Value;
+        //    OracleConnection cn = new OracleConnection(strConnectionString_ODBC);
+        //    string sqlGetMONO = "" +
+        //         " SELECT PFODS.CEAEMP_143.EACANO AS id, PFODS.CEAEMP_143.EAEMNM AS FullName, PFODS.CEAEMP_143.EADEPT AS CostCenter" +
+        //         " FROM PFODS.CEAEMP_143" +
+        //         " WHERE PFODS.CEAEMP_143.EACANO = '" + employeeId + "'";
+        //    comm = new OracleCommand(sqlGetMONO, cn);
+        //    cn.Open();
+        //    dr = comm.ExecuteReader();
+        //    if (dr.Read() == true)
+        //    {
+        //        FullName = dr.GetValue(1).ToString();
+        //        CostCenter = dr.GetValue(2).ToString().Substring(2, 4);
+        //    }
+        //    cn.Close();
+        //    dr.Close();
+        //    cn.Dispose();
+        //    comm.Dispose();
+        //    cn.Dispose();
+        //    string[] infor = new string[2] { FullName, CostCenter };
+        //    return (infor);
+        //}
+
+
+        public async Task<List<CipfSuggestion>> GetSuggestions(string currentUser, int year, int quarter)
+        {
+            List<CipfSuggestion> suggestions = await _context.CipfSuggestion.Where(x => x.SubmitDate.Year == year).ToListAsync();
+            //sorting quaterly
+            if (quarter > 0)
+            {
+                suggestions = suggestions.Where(x => (x.SubmitDate.Month + 2) / 3 == quarter).ToList();
+            }
+
+            return suggestions.OrderByDescending(x => x.SubmitDate).ToList();
         }
 
-
-        public async Task<List<ListOfDepartment>> GetListOfDepartments()
+        // Get Suggestions for edit
+        public async Task<List<CipfSuggestion>> GetSuggestions(int id)
         {
-            List<ListOfDepartment> listOfDepartments = new List<ListOfDepartment>();
-            try
+            var ExistData = _context.CipfSuggestion.Where(x => x.Id == id).FirstOrDefault();
+            if (ExistData != null)
             {
-                Query query = db.Collection("Department");
-                QuerySnapshot deptSnapshots = await query.GetSnapshotAsync();
-                foreach (DocumentSnapshot documentSnapshot in deptSnapshots.Documents)
+                return await _context.CipfSuggestion.Where(x => x.Id == id).ToListAsync();
+            }
+            else
+            {
+                return null;
+            }
+        }
+        //Get suggestion base on suggestion id
+        // Get Suggestions for edit
+        public async Task<List<CipfSuggestion>> GetSuggestions(string id)
+        {
+            var ExistData = _context.CipfSuggestion.Where(x => x.SuggestionId == id).FirstOrDefault();
+            if (ExistData != null)
+            {
+                return await _context.CipfSuggestion.Where(x => x.SuggestionId == id).ToListAsync();
+            }
+            else
+            {
+                return null;
+            }
+        }
+        public async Task<List<CipfSuggestion>> GetMyApproval(string userId, int year)
+        {
+            return await _context.CipfSuggestion
+                .Where(x => (x.ApproveActionBy.Contains(userId.Replace("AP\\", "")) && x.IndicatorOfStatus == 5) || (x.Email.Contains(userId.Replace("AP\\", "")) && x.IndicatorOfStatus == 7) || (x.Email.Contains(userId.Replace("AP\\", ""))) && x.SubmitDate.Year == year).ToListAsync();
+        
+        }
+        public async Task<List<CipfSuggestion>> GetMyTask(string userId, int year)
+        {
+            return await _context.CipfSuggestion
+                .Where(x => x.OwnerAction.Contains(userId.Replace("AP\\", "")) && x.SubmitDate.Year == year).ToListAsync();
+        }
+        public async Task<List<ProductionDepartment>> GetListOfDepartments()
+        {
+            return await _context.ProductionDepartment.ToListAsync();
+        }
+
+        public async Task<bool> UpdateData(string Id, string currentUser, string result, string remark)
+        {
+            var ExistingSuggestion = _context.CipfSuggestion.Where(x => x.SuggestionId == Id).FirstOrDefault();
+            if (ExistingSuggestion != null)
+            {
+                ExistingSuggestion.ApproveDt = DateTime.Now;
+                ExistingSuggestion.Status = result;
+                ExistingSuggestion.Remark = remark;
+                if (result == "Đã duyệt đề xuất")
                 {
-                    DocumentReference documentReference = db.Collection("Department").Document(documentSnapshot.Id);
-                    DocumentSnapshot document = await documentReference.GetSnapshotAsync();
-                    if (document.Exists)
-                    {
-                        ListOfDepartment listdept = document.ConvertTo<ListOfDepartment>();
-                        listdept.Department = documentSnapshot.Id;
-                        listOfDepartments.Add(listdept);
-
-                    }
+                    ExistingSuggestion.IndicatorOfStatus = 2;
                 }
-            }
-            catch
-            {
-                throw;
-            }
-            return listOfDepartments;
-        }
+                else if (result == "Hoàn tất")
+                {
+                    ExistingSuggestion.IndicatorOfStatus = 6;
+                }
+                else
+                {
+                    ExistingSuggestion.IndicatorOfStatus = 7;
+                }
 
-        public async Task UpdateData(string Id, string currentUser, string result)
-        {
-            DocumentReference document = db.Collection("Suggestion")
-                .Document(Id);
-            Timestamp td = Timestamp.GetCurrentTimestamp();
-            Dictionary<string, object> updateStatus = new Dictionary<string, object>
+                ExistingSuggestion.ApproveSuggBy = currentUser;
+                await _context.SaveChangesAsync();
+            }
+            else
             {
-                {"approveDt", td},
-                {"status",result },
-                {"approveSuggBy",currentUser }
-            };
-            await document.UpdateAsync(updateStatus);
-        }
+                return await Task.FromResult(false);
+            }
+            return await Task.FromResult(true);
 
-        public async Task UpdateAssignTask(string Id, string emailReceiver, string status)
+        }
+        //Edit new topic
+        public async Task<bool> UpdateData(CipfSuggestion cipf)
         {
-            DocumentReference document = db.Collection("Suggestion")
-                .Document(Id);
-            Timestamp td = Timestamp.GetCurrentTimestamp();
-            Dictionary<string, object> updateStatus = new Dictionary<string, object>
+            var ExistingSuggestion = _context.CipfSuggestion.Where(x => x.Id == cipf.Id).FirstOrDefault();
+            if (ExistingSuggestion != null)
             {
-                {"assignDt", td},
-                {"status",status },
-                {"ownerAction",emailReceiver }
-            };
-            await document.UpdateAsync(updateStatus);
+                ExistingSuggestion.DeptRecSug = cipf.DeptRecSug;
+                ExistingSuggestion.ExpectedBenefit = cipf.ExpectedBenefit;
+                ExistingSuggestion.Email = cipf.Email;
+                ExistingSuggestion.SuggestionAction = cipf.SuggestionAction;
+                ExistingSuggestion.CurrentStatus = cipf.CurrentStatus;
+                ExistingSuggestion.SubmitDate = DateTime.Now;
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                return await Task.FromResult(false);
+            }
+            return await Task.FromResult(true);
+
+        }
+        public async Task<bool> UpdateAssignTask(string Id, string emailReceiver, string status)
+        {
+            var ExistingSuggestion = _context.CipfSuggestion.Where(x => x.SuggestionId == Id).FirstOrDefault();
+            if (ExistingSuggestion != null)
+            {
+                ExistingSuggestion.AssignDt = DateTime.Now;
+                ExistingSuggestion.Status = status;
+                ExistingSuggestion.IndicatorOfStatus = 3;
+                ExistingSuggestion.OwnerAction = emailReceiver;
+                await _context.SaveChangesAsync();
+                sendEmail(ExistingSuggestion.ApproveSuggBy.Replace("AP\\", "") + "@vn.pepperl-fuchs.com", emailReceiver, Id);
+            }
+            else
+            {
+                return await Task.FromResult(false);
+            }
+            return await Task.FromResult(true);
         }
         #region Manage like post
         //Save new like
-        public async Task LikeSuggestion(string Id, string currentUser)
+        public Task<CipfListOfLike> LikeSuggestion(string Id, string currentUser, string userBeLiked, DateTime submitDt)
         {
-            DocumentReference document = db.Collection("Like").Document(currentUser);
-            Dictionary<string, object> updates = new Dictionary<string, object>
-            {
-                {Id,true}
-            };
-            await document.SetAsync(updates, SetOptions.MergeAll);
+            CipfListOfLike cipf = new CipfListOfLike();
+            cipf.SuggestionId = Id;
+            cipf.SubmitSuggestionDt = submitDt;//_context.CipfSuggestion.Where(x => x.SuggestionId == Id).Select(x => x.SubmitDate).FirstOrDefault();
+            cipf.UserName = currentUser.Replace(" ", "");
+            cipf.UserBeLiked = userBeLiked.Replace(" ", "");
+            _context.Add(cipf);
+            _context.SaveChanges();
+            return Task.FromResult(cipf);
         }
 
         //Unlike the post
-        public async Task UnlikeSuggestion(string Id, string currentUser)
+        public Task<bool> UnlikeSuggestion(string Id, string currentUser)
         {
-            DocumentReference document = db.Collection("Like").Document(currentUser);
-            Dictionary<string, object> updates = new Dictionary<string, object>
+            var ExistLikeSugg = _context.CipfListOfLike.Where(x => x.SuggestionId == Id && x.UserName == currentUser).FirstOrDefault();
+            if (ExistLikeSugg != null)
             {
-                {Id,false }
-            };
-            await document.SetAsync(updates, SetOptions.MergeAll);
+                _context.Remove(ExistLikeSugg);
+                _context.SaveChanges();
+            }
+            else
+            {
+                return Task.FromResult(false);
+            }
+            return Task.FromResult(true);
         }
         //Get and count of like
-        public async Task<List<ListOfLike>> GetListOfLike()
+        public async Task<List<CipfListOfLike>> GetListOfLike(int yr, int quarter)
         {
-            List<ListOfLike> listOfLikes = new List<ListOfLike>();
-            try
+            List<CipfListOfLike> cipfListOfLikes = await _context.CipfListOfLike.Where(x => x.SubmitSuggestionDt.Year == yr).ToListAsync();
+            if (quarter > 0)
             {
-                Query query = db.Collection("Like");
-                QuerySnapshot documentSnapshots = await query.GetSnapshotAsync();
-                foreach (DocumentSnapshot document in documentSnapshots.Documents)
-                {
-                    DocumentReference documentReference = db.Collection("Like").Document(document.Id);
-                    DocumentSnapshot snapshot = await documentReference.GetSnapshotAsync();
-                    if (snapshot.Exists)
-                    {
-                        ListOfLike list = snapshot.ConvertTo<ListOfLike>();
-                        list.userName = document.Id;
-                        listOfLikes.Add(list);
-                    }
-                    else
-                    {
-
-                    }
-                }
+                cipfListOfLikes = cipfListOfLikes.Where(x => (x.SubmitSuggestionDt.Month + 2) / 3 == quarter).ToList();
             }
-            catch
-            {
-                throw;
-            }
-            return listOfLikes;
+            return cipfListOfLikes;
         }
         #endregion
-        public async Task AddNewSuggestion(Suggestion suggestion)
+        public async Task<CipfSuggestion> AddNewSuggestion(CipfSuggestion suggestion)
         {
-            Timestamp dtSubmit = Timestamp.GetCurrentTimestamp();
-            string Id = (dtSubmit.ToString() + suggestion.ownerCode).Replace(" ", "").Replace("-", "").Replace("Timestamp:", "").Replace(".", "");
-            DocumentReference document = db.Collection("Suggestion").Document(Id);
-            // DateTime td = DateTime.Now;
-            suggestion.id = Id;
-            suggestion.submitDate = dtSubmit;
-            suggestion.status = "Đăng ký mới";
-            await document.SetAsync(suggestion);
+            DateTime dtSubmit = DateTime.Now;
+            //string Id = (dtSubmit.ToLongTimeString()+dtSubmit.ToShortDateString()+ suggestion.OwnerCode).Replace(" ", "").Replace("-", "").Replace("/", "").Replace(".", "").Replace(":","");
+            suggestion.SuggestionId = suggestion.SuggestionId;
+            suggestion.SubmitDate = dtSubmit;
+            suggestion.ApproveDt = new DateTime(1900, 1, 1);
+            suggestion.AssignDt = new DateTime(1900, 1, 1);
+            suggestion.PlanFinishActionDt = new DateTime(1900, 1, 1);
+            suggestion.Status = "Đăng ký mới";
+            suggestion.IndicatorOfStatus = 1;
+            _context.CipfSuggestion.Add(suggestion);
+            await _context.SaveChangesAsync();
+            return await Task.FromResult(suggestion);
         }
-        public async Task AddNewEmployee(UserProfiles user)
+
+        //Delete new topic
+        public async Task<bool> DeleteNewTopic(int id)
         {
-            DocumentReference document = db.Collection("UserProfiles").Document(user.Id);
-            await document.SetAsync(user);
+            var ExistData = _context.CipfSuggestion.Where(x => x.Id == id).FirstOrDefault();
+            if (ExistData != null)
+            {
+                _context.Remove(ExistData);
+                await _context.SaveChangesAsync();
+                return await Task.FromResult(true);
+            }
+            else
+            {
+                return await Task.FromResult(false);
+            }
         }
-        public async Task<List<UserProfiles>> GetUserProfile(string emplId)
+        //Update picture before only
+        public async Task<bool> UpdateBeforePicture(string Id)
         {
-            List<UserProfiles> userProfiles = new List<UserProfiles>();
-            Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", filepath);
-            FirestoreDb db = FirestoreDb.Create(projectId);
+            var ExistSuggestion = _context.CipfSuggestion.Where(x => x.SuggestionId == Id).FirstOrDefault();
+            if (ExistSuggestion != null)
+            {
+                ExistSuggestion.ImageUriBefore = Id + ".jpg";
+                await _context.SaveChangesAsync();
+                return await Task.FromResult(true);
+            }
+            else
+            {
+                return await Task.FromResult(false);
+            }
+
+        }
+        public async Task<CipfUserProfiles> AddNewEmployee(CipfUserProfiles user)
+        {
+            _context.CipfUserProfiles.Add(user);
+            await _context.SaveChangesAsync();
+            return await Task.FromResult(user);
+        }
+        public async Task<List<CipfUserProfiles>> GetUserProfile(string emplId)
+        {
+            return await _context.CipfUserProfiles.Where(x => x.EmployeeId == emplId).ToListAsync();
+        }
+
+        #region send email
+        //Send email
+        private string message { get; set; } = "";
+        private void sendEmail(string senderEmail, string recieverEmail, string id)
+        {
             try
             {
-                Query query = db.Collection("UserProfiles").WhereEqualTo("employeeId", emplId);
-                QuerySnapshot suggestionSnapshots = await query.GetSnapshotAsync();
-
-                foreach (DocumentSnapshot documentSnapshot in suggestionSnapshots.Documents)
+                using (MailMessage mail = new MailMessage())
                 {
-                    DocumentReference documentReference = db.Collection("UserProfiles").Document(documentSnapshot.Id);
-                    DocumentSnapshot snapshot = await documentReference.GetSnapshotAsync();
-                    if (snapshot.Exists)
+                    //mail.From = new MailAddress("cipf.autoemail.noreply@gmail.com");
+                    mail.From = new MailAddress("ContinuousImprovement.autoemail.noreply@vn.pepperl-fuchs.com");
+                    mail.To.Add(recieverEmail);
+                    mail.CC.Add(senderEmail);
+                    //mail.CC.Add("hvho");
+                    mail.Subject = "Continuous improvement _ New Suggestion _ " + id;
+                    mail.Body = "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Dear Sir,</p></br>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">There is a new suggestion to improve our company. You are right person to implement this idea. Here is link to access your task:</span></br>" +
+                        "</br><a style=\"text-decoration:none;font-size:13px;font-family:Helvetica,Arial,sans-serif;color:#0275d8;border-radius:5px;padding:6px 12px 6px 12px;border:1px solid #0071c5;display:inline-block\"" +
+                        " href=\"172.22.0.21:8384/mytask\">Your Task ID - " + id + "</a></br><hr>" +
+                        "</br><span style=\"color:#868e96; font-size:10px\">This is an auto-generated message. Please DO NOT reply.</span></br>";
+                    mail.IsBodyHtml = true;
+                    //using (SmtpClient smtp = new SmtpClient("smtp.gmail.com", 25))
+                    using (SmtpClient smtp = new SmtpClient("mailgw01", 25))
                     {
-                        UserProfiles userProfiles1 = snapshot.ConvertTo<UserProfiles>();
-                        userProfiles1.Id = documentSnapshot.Id;
-                        userProfiles.Add(userProfiles1);
-                    }
-                    else
-                    {
-
+                        //smtp.Credentials = new System.Net.NetworkCredential("cipf.autoemail.noreply@gmail.com", "Pf1234567");
+                        //smtp.Credentials = new System.Net.NetworkCredential("hvho@vn.pepperl-fuchs.com", "Pf1234567");
+                        //smtp.EnableSsl = true;
+                        //smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+                        //smtp.UseDefaultCredentials = false;
+                        smtp.Send(mail);
                     }
                 }
 
             }
-            catch
+            catch (Exception)
             {
+
                 throw;
             }
-            return userProfiles;
+        }
+        //Send email inform new email
+        public void sendEmailNewSuggest(string recieverEmail, string cc,CipfSuggestion info)
+        {
+            try
+            {
+                using (MailMessage mail = new MailMessage())
+                {
+                    //mail.From = new MailAddress("cipf.autoemail.noreply@gmail.com");
+                    mail.From = new MailAddress("ContinuousImprovement.autoemail.noreply@vn.pepperl-fuchs.com");
+                    mail.To.Add(recieverEmail);
+                    mail.CC.Add(cc);
+                    //mail.CC.Add("hvho");
+                    mail.Subject = "Continuous improvement _ New Suggestion";
+                    mail.Body = "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Dear Sir,</p></br>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">There is a new suggestion to improve our company. Here is link to access your task:</span></br>" +
+                        "</br><a style=\"text-decoration:none;font-size:13px;font-family:Helvetica,Arial,sans-serif;color:#0275d8;border-radius:5px;padding:6px 12px 6px 12px;border:1px solid #0071c5;display:inline-block\"" +
+                        " href=\"172.22.0.21:8384/myapproval\">Click Here</a></br><hr>" +
+                         "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Details:</b></span>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">This is suggested by " + info.OwnerSuggestion + "_" + info.OwnerCode + ".</span></br>" +
+                        "</br>" +
+                        "<div class=\"row p-0 m - 0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Current Status:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-weight:bold\">" + info.CurrentStatus + "</span>" +
+                        "</div>" +
+                        "<br />" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline;font-style:oblique\"><b>Suggestion:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-style:oblique\">" + info.SuggestionAction + "</span>" +
+                        "</div>" +
+                        "<br /><hr>" +
+
+                        "</br><span style=\"color:#868e96; font-size:10px\">This is an auto-generated message. Please DO NOT reply.</span></br>";
+                    mail.IsBodyHtml = true;
+                    //using (SmtpClient smtp = new SmtpClient("smtp.gmail.com", 25))
+                    using (SmtpClient smtp = new SmtpClient("mailgw01", 25))
+                    {
+                        //smtp.Credentials = new System.Net.NetworkCredential("cipf.autoemail.noreply@gmail.com", "Pf1234567");
+                        //smtp.Credentials = new System.Net.NetworkCredential("hvho@vn.pepperl-fuchs.com", "Pf1234567");
+                        //smtp.EnableSsl = true;
+                        //smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+                        //smtp.UseDefaultCredentials = false;
+                        smtp.Send(mail);
+                    }
+                }
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+        //send email inform reject new suggestion
+        public void sendEmailRejectSuggestion(string recieverEmail, string cc, string remark,string Id)
+        {
+            var info = _context.CipfSuggestion.Where(x => x.SuggestionId == Id).FirstOrDefault();
+            try
+            {
+                using (MailMessage mail = new MailMessage())
+                {
+                    //mail.From = new MailAddress("cipf.autoemail.noreply@gmail.com");
+                    mail.From = new MailAddress("ContinuousImprovement.autoemail.noreply@vn.pepperl-fuchs.com");
+                    mail.To.Add(recieverEmail);
+                    mail.CC.Add(cc);
+                    //mail.CC.Add("hvho");
+                    mail.Subject = "Continuous improvement _ Decline Suggestion";
+                    mail.Body = "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Dear,</p></br>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Your suggestion have been declined. Please contact to your superior. Please see below for more details: </span></br>" +
+                        "</br>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">This is suggested by " + info.OwnerSuggestion + "_" + info.OwnerCode + ".</span></br>" +
+                        "</br>" +
+                        "<div class=\"row p-0 m - 0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Current Status:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-weight:bold\">" + info.CurrentStatus + "</span>" +
+                        "</div>" +
+                        "<br />" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline;font-style:oblique\"><b>Suggestion:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-style:oblique\">" + info.SuggestionAction + "</span>" +
+                        "</div>" +
+                        "<br />" +
+                         "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline;font-style:oblique\"><b>Rejection Reason:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-style:oblique;color:red\">" + info.Remark + "</span>" +
+                        "</div>" +
+                        "</br><hr><span style=\"color:#868e96; font-size:10px\">This is an auto-generated message. Please DO NOT reply.</span></br>";
+                    mail.IsBodyHtml = true;
+                    //using (SmtpClient smtp = new SmtpClient("smtp.gmail.com", 25))
+                    using (SmtpClient smtp = new SmtpClient("mailgw01", 25))
+                    {
+                        //smtp.Credentials = new System.Net.NetworkCredential("cipf.autoemail.noreply@gmail.com", "Pf1234567");
+                        //smtp.Credentials = new System.Net.NetworkCredential("hvho@vn.pepperl-fuchs.com", "Pf1234567");
+                        //smtp.EnableSsl = true;
+                        //smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+                        //smtp.UseDefaultCredentials = false;
+                        smtp.Send(mail);
+                    }
+                }
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+        //send email inform reject new suggestion
+        public void sendEmailRejectProposal(string recieverEmail, string cc, string cc1, string remark,string Id)
+        {
+            var info = _context.CipfSuggestion.Where(x => x.SuggestionId == Id).FirstOrDefault();
+            try
+            {
+                using (MailMessage mail = new MailMessage())
+                {
+                    //mail.From = new MailAddress("cipf.autoemail.noreply@gmail.com");
+                    mail.From = new MailAddress("ContinuousImprovement.autoemail.noreply@vn.pepperl-fuchs.com");
+                    mail.To.Add(recieverEmail);
+                    mail.CC.Add(cc);
+                    mail.CC.Add(cc1);
+                    mail.Subject = "Continuous improvement _ Decline Suggestion";
+                    mail.Body = "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Dear,</p></br>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Your proposal have been declined. Please contact to your superior. Please see below for more details: </span></br>" +
+                         "</br>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">This is suggested by " + info.OwnerAction + ".</span></br>" +
+                        "</br>" +
+                        "<div class=\"row p-0 m - 0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Current Status:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-weight:bold\">" + info.ActionDesc + "</span>" +
+                        "</div>" +
+                        "<br />" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline;font-style:oblique\"><b>Suggestion:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-style:oblique\">" + info.ActionEffectiveness + "</span>" +
+                        "</div>" +
+                        "<br />" +
+                         "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline;font-style:oblique\"><b>Rejection Reason:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-style:oblique;color:red\">" + info.Remark + "</span>" +
+                        "</div>" +
+                        "</br><hr><span style=\"color:#868e96; font-size:10px\">This is an auto-generated message. Please DO NOT reply.</span></br>";
+                    mail.IsBodyHtml = true;
+                    //using (SmtpClient smtp = new SmtpClient("smtp.gmail.com", 25))
+                    using (SmtpClient smtp = new SmtpClient("mailgw01", 25))
+                    {
+                        //smtp.Credentials = new System.Net.NetworkCredential("cipf.autoemail.noreply@gmail.com", "Pf1234567");
+                        //smtp.Credentials = new System.Net.NetworkCredential("hvho@vn.pepperl-fuchs.com", "Pf1234567");
+                        //smtp.EnableSsl = true;
+                        //smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+                        //smtp.UseDefaultCredentials = false;
+                        smtp.Send(mail);
+                    }
+                }
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
+        //send email approve new suggest
+        public void sendEmailApprovalSuggestion(string recieverEmail, string cc, CipfSuggestion info)
+        {
+            try
+            {
+                using (MailMessage mail = new MailMessage())
+                {
+                    //mail.From = new MailAddress("cipf.autoemail.noreply@gmail.com");
+                    mail.From = new MailAddress("ContinuousImprovement.autoemail.noreply@vn.pepperl-fuchs.com");
+                    mail.To.Add(recieverEmail);
+                    mail.CC.Add(cc);
+                    //mail.CC.Add("hvho");
+                    mail.Subject = "Continuous improvement _ Suggestion are aprroved";
+                    mail.Body = "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Dear,</p></br>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">"+info.OwnerSuggestion+"_"+info.OwnerCode +"'s new suggestion have been approved.</span></br>" +
+                        "</br><hr>" +
+                         "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Details:</b></span>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">This is suggested by " + info.OwnerSuggestion + "_" + info.OwnerCode + ".</span></br>" +
+                        "</br>" +
+                        "<div class=\"row p-0 m - 0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Current Status:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-weight:bold\">" + info.CurrentStatus + "</span>" +
+                        "</div>" +
+                        "<br />" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline;font-style:oblique\"><b>Suggestion:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-style:oblique\">" + info.SuggestionAction + "</span>" +
+                        "</div>" +
+                        "<hr>" +
+                        "</br><span style=\"color:#868e96; font-size:10px\">This is an auto-generated message. Please DO NOT reply.</span></br>";
+                    mail.IsBodyHtml = true;
+                    //using (SmtpClient smtp = new SmtpClient("smtp.gmail.com", 25))
+                    using (SmtpClient smtp = new SmtpClient("mailgw01", 25))
+                    {
+                        //smtp.Credentials = new System.Net.NetworkCredential("cipf.autoemail.noreply@gmail.com", "Pf1234567");
+                        //smtp.Credentials = new System.Net.NetworkCredential("hvho@vn.pepperl-fuchs.com", "Pf1234567");
+                        //smtp.EnableSsl = true;
+                        //smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+                        //smtp.UseDefaultCredentials = false;
+                        smtp.Send(mail);
+                    }
+                }
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+
+        //send email approve new suggest
+        public void sendEmailApprovalProposal(string recieverEmail, string cc, string cc1,string Id)
+        {
+            var info = _context.CipfSuggestion.Where(x => x.SuggestionId == Id).FirstOrDefault();
+            try
+            {
+                using (MailMessage mail = new MailMessage())
+                {
+                    //mail.From = new MailAddress("cipf.autoemail.noreply@gmail.com");
+                    mail.From = new MailAddress("ContinuousImprovement.autoemail.noreply@vn.pepperl-fuchs.com");
+                    mail.To.Add(recieverEmail);
+                    mail.CC.Add(cc);
+                    mail.CC.Add(cc1);
+                    //mail.CC.Add("hvho");
+                    mail.Subject = "Continuous improvement _ The proposal are aprroved";
+                    mail.Body = "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Dear,</p></br>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">Your proposal have been approved.</span></br>" +
+                        "</br><hr>" +
+                         "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Details:</b></span>" +
+                        "<span style=\"font-size:13px;font-family:Helvetica,Arial,sans-serif;\">This is suggested by " + info.OwnerSuggestion + "_" + info.OwnerCode + ".</span></br>" +
+                        "</br>" +
+                        "<div class=\"row p-0 m - 0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Current Status:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-weight:bold\">" + info.CurrentStatus + "</span>" +
+                        "</div>" +
+                        "<br />" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline;font-style:oblique\"><b>Suggestion:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-style:oblique\">" + info.SuggestionAction + "</span>" +
+                        "</div>" +
+                         "</br>" +
+                        "<div class=\"row p-0 m - 0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline\"><b>Action Description:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-weight:bold\">" + info.ActionDesc + "</span>" +
+                        "</div>" +
+                        "<br />" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"text-decoration-line:underline;font-style:oblique\"><b>Action Effectiveness:</b></span>" +
+                        "</div>" +
+                        "<div class=\"row p-0 m-0\">" +
+                        "<span class=\"small\" style=\"font-style:oblique\">" + info.ActionEffectiveness + "</span>" +
+                        "</div></br>" +
+                        "<hr>" +
+                        "</br><span style=\"color:#868e96; font-size:10px\">This is an auto-generated message. Please DO NOT reply.</span></br>";
+                    mail.IsBodyHtml = true;
+                    //using (SmtpClient smtp = new SmtpClient("smtp.gmail.com", 25))
+                    using (SmtpClient smtp = new SmtpClient("mailgw01", 25))
+                    {
+                        //smtp.Credentials = new System.Net.NetworkCredential("cipf.autoemail.noreply@gmail.com", "Pf1234567");
+                        //smtp.Credentials = new System.Net.NetworkCredential("hvho@vn.pepperl-fuchs.com", "Pf1234567");
+                        //smtp.EnableSsl = true;
+                        //smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+                        //smtp.UseDefaultCredentials = false;
+                        smtp.Send(mail);
+                    }
+                }
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+        #endregion
+
+        #region Manage Commnet
+        public async Task<List<CipfComment>> GetComment(int yr, int quarter)
+        {
+            List<CipfComment> cipfComments = await _context.CipfComment.Where(x => x.SubmitSuggestionDt.Year == yr).ToListAsync();
+            if (quarter > 0)
+            {
+                cipfComments = cipfComments.Where(x => (x.SubmitSuggestionDt.Month + 2) / 3 == quarter).ToList();
+            }
+            return cipfComments;
+        }
+
+        //Add comment
+        public async Task<CipfComment> AddComment(string id, DateTime submitSuggDt, string comment, string user)
+        {
+            CipfComment cipf = new CipfComment();
+            cipf.SuggestionId = id;
+            cipf.Comment = comment;
+            cipf.SubmitSuggestionDt = submitSuggDt;
+            cipf.DateComment = DateTime.Now;
+            cipf.UserComment = user;
+            _context.Add(cipf);
+            await _context.SaveChangesAsync();
+            return await Task.FromResult(cipf);
+        }
+
+        //Delete Comment
+        public async Task<bool> DeleteComment(int id)
+        {
+            var ExistComment = _context.CipfComment.Where(x => x.Id == id).FirstOrDefault();
+            if (ExistComment != null)
+            {
+                _context.Remove(ExistComment);
+                await _context.SaveChangesAsync();
+                return await Task.FromResult(true);
+            }
+            return await Task.FromResult(false);
+        }
+        #endregion
     }
 }

@@ -1,0 +1,85 @@
+﻿@page "/rejectsuggestionmodal"
+@using ContinuousImprovement.Model
+@using ContinuousImprovement.Data
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IModalService ModalService
+@inherits OwningComponentBase<SuggestionService>
+
+
+<div class="card-body" style="width:500px">
+    <EditForm Model="cipf">
+        <div class="form-group">
+            <label class="control-label">Reason</label>
+            <textarea class="form-control" @bind="cipf.Remark" @bind:event="oninput"  />
+        </div>
+    </EditForm>
+</div>
+<div class="card-footer">
+    <div class="row">
+        <div class="col-8 p-2">
+            @if (string.IsNullOrWhiteSpace(cipf.Remark))
+            {
+                <button class="btn btn-block btn-success" disabled="disabled"
+                        @onclick="RejectSuggestion" data-dismiss="modal">
+                    Decline
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-block btn-success" 
+                        @onclick="RejectSuggestion" data-dismiss="modal">
+                    Decline
+                </button>
+            }
+
+        </div>
+        <div class="col-4 p-2">
+            <button class="btn btn-block btn-danger"
+                    @onclick="Cancel" data-dismiss="modal">
+                Cancel
+            </button>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    CipfSuggestion cipf = new CipfSuggestion();
+    List<CipfSuggestion> cipfSuggestions = new List<CipfSuggestion>();
+    [CascadingParameter] BlazoredModalInstance BlazoredModal { get; set; }
+    string currentUser = "";
+    //[Parameter] public int Id { get; set; }
+
+    [Parameter] public string Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            currentUser = user.Identity.Name;
+        }
+        cipfSuggestions = await Service.GetSuggestions(Id);
+    }
+
+    async Task RejectSuggestion()
+    {
+        await Service.UpdateData(Id, currentUser.ToString(), "Không thực hiện",cipf.Remark);
+        if (cipfSuggestions.FirstOrDefault().IndicatorOfStatus == 5)
+        {
+           Service.sendEmailRejectProposal(cipfSuggestions.FirstOrDefault().InputBy.ToLower().Replace("ap\\","")+"@vn.pepperl-fuchs.com",cipfSuggestions.FirstOrDefault().OwnerAction
+               , currentUser.ToLower().Replace("ap\\","")+"@vn.pepperl-fuchs.com",cipf.Remark,Id);
+        }
+        else
+        {
+           Service.sendEmailRejectSuggestion(cipfSuggestions.FirstOrDefault().InputBy.ToLower().Replace("ap\\","")+"@vn.pepperl-fuchs.com", currentUser.ToLower().Replace("ap\\","")+"@vn.pepperl-fuchs.com",cipf.Remark,Id);
+        }
+        BlazoredModal.Close();
+    }
+    void Cancel()
+    {
+        BlazoredModal.Close();
+    }
+}
