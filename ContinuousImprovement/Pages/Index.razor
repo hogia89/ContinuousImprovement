@@ -317,8 +317,16 @@ else
         <div class="col-lg-6 col-xl-6 col-xm-6 col-sm-12 sidebarleft" style="opacity:0.7">
             <div class="row form-row p-1" style="height:8vh">
                 <div class="col-7">
-                    <h2>Dashboard <a class="btn text-success" @onclick="@Refresh" style="cursor:pointer;background-color:transparent"><i class="fas fa-sync-alt"></i></a></h2>
+                    <h2>
+                        Dashboard <a class="btn text-success" @onclick="@Refresh" style="cursor:pointer;background-color:transparent"><i class="fas fa-sync-alt"></i></a>
+                        <label for="submitbutton" style="display:inline;cursor:pointer" class="btn text-success" title="Download excel file"><i class="fas fa-download"></i></label>
+                    </h2>
+                    <form action="downloadexcel/Download" method="post" style="display:none">
+                        <input name="json" @bind="jsonSuggestion" />
+                        <button type="submit" id="submitbutton"></button>
+                    </form>
                 </div>
+                
                 <div class="col-5">
                     <div class="row">
                         <div class="col-6 p-1" style="text-align:right">
@@ -656,6 +664,7 @@ else
         {
             checkLoadingData = true;
         }
+        jsonSuggestion = System.Text.Json.JsonSerializer.Serialize(suggestionFilter);
     }
     #region Button fuction
     public async Task LikeSuggestion(string Id, string ownerCode, DateTime submitDt)
@@ -733,6 +742,7 @@ else
         cipfComments = await Service.GetComment(filterYear, filterQuater);
         listOfEmployee_CRS530s = await Service.GetHrweeklyReports(filterYear, filterQuater);
         suggestion = await Service.GetSuggestions(currentUser.ToString(), filterYear, filterQuater);
+        jsonSuggestion = System.Text.Json.JsonSerializer.Serialize(suggestion);
     }
     //show more list -> verified
     public void ShowMoreList()
@@ -754,7 +764,7 @@ else
             suggestionFilterQuarter = await Service.GetSuggestions(currentUser.ToString(), filterYear, filterQuater);
             suggestionFilterQuarter = suggestionFilterQuarter.Where(x => x.DeptRecSug == currentDept).ToList();
         }
-
+        jsonSuggestion = System.Text.Json.JsonSerializer.Serialize(suggestionFilterQuarter);
     }
     //Reresh data = Verified
     public async Task Refresh()
@@ -790,6 +800,7 @@ else
         emailAssign = null;
         await UpdatePieChart();
         await UpdateBarChart();
+        jsonSuggestion = System.Text.Json.JsonSerializer.Serialize(suggestionFilter);
         StateHasChanged();
     }
     #endregion
@@ -855,6 +866,7 @@ else
             suggestionFilter = suggestionFilter.Where(x => x.IndicatorOfStatus == filterStatus).ToList();
         }
         //LoadChart();
+        jsonSuggestion = System.Text.Json.JsonSerializer.Serialize(suggestionFilter);
     }
     //Filter by department -> Verified
     public async Task FilterDept(string department)
@@ -863,6 +875,7 @@ else
         suggestionFilter = suggestionFilterQuarter;
         await UpdatePieChart();
         await UpdateBarChart();
+        jsonSuggestion = System.Text.Json.JsonSerializer.Serialize(suggestionFilter);
     }
     //Select department (filter) -> verified
     public async Task SelectDepartment(ChangeEventArgs e)
@@ -888,6 +901,7 @@ else
         filterEmployee = employeeId;
         suggestionFilter = suggestionFilterQuarter.Where(x => x.OwnerCode == employeeId).ToList();
         //LoadChart();
+        jsonSuggestion = System.Text.Json.JsonSerializer.Serialize(suggestionFilter);
     }
     //Filter by Quarter -> verified
     public async Task FilterQuarter(int q)
@@ -1277,5 +1291,9 @@ else
         await Refresh();
     }
 
+    #endregion
+
+    #region Download Excel
+    private string jsonSuggestion { get; set; }
     #endregion
 }
